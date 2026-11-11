@@ -14,7 +14,7 @@ const main: PsWorktree = {
 /** A fake `orca` CLI: records every call and lists `terminals` for `terminal list`. */
 function fakeOrca(terminals: { handle: string; tabId?: string; leafId?: string }[] = []) {
   const calls: string[][] = []
-  const orcaJson: OrcaJson = async <T,>(args: string[]) => {
+  const orcaJson: OrcaJson = async <T>(args: string[]) => {
     calls.push(args)
     return (args[0] === 'terminal' && args[1] === 'list' ? { terminals } : {}) as T
   }
