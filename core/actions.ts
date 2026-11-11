@@ -24,7 +24,7 @@ function envArgs(env: string | null | undefined): string[] {
 }
 
 /** The selector the workspace's own host knows it by. */
-function selector(w: PsWorktree): string {
+export function selector(w: PsWorktree): string {
   return `id:${w.rawWorktreeId ?? w.worktreeId}`
 }
 
