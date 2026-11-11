@@ -40,7 +40,7 @@ function fakeApi(snapshot: Snapshot = busySnapshot(), calls: Call[] = [], overri
 
 test('lists what needs you, longest waiting first', async () => {
   render(<App api={fakeApi()} />)
-  const section = await screen.findByRole('region', { name: 'Needs you' })
+  const section = await screen.findByRole('complementary', { name: 'Needs you' })
   const cards = within(section).getAllByRole('article')
   assert.deepEqual(
     cards.map((c) => within(c).getByRole('heading').textContent),
@@ -61,7 +61,7 @@ async function press(button: HTMLElement): Promise<void> {
 
 /** The Needs you card for one workspace. */
 async function card(workspace: string): Promise<HTMLElement> {
-  const section = await screen.findByRole('region', { name: 'Needs you' })
+  const section = await screen.findByRole('complementary', { name: 'Needs you' })
   const found = within(section)
     .getAllByRole('article')
     .find((c) => within(c).getByRole('heading').textContent?.endsWith(` · ${workspace}`))
@@ -112,7 +112,7 @@ test('marks a flagged workspace read and shows the snapshot that comes back', as
   render(<App api={fakeApi(busySnapshot(), calls, { 'overview.markRead': after })} />)
   await press(within(await card('feat/gh-311-face')).getByRole('button', { name: 'Mark read' }))
   await waitFor(() => assert.deepEqual(calls.at(-1), { channel: 'overview.markRead', input: { worktreeId: 'devbox@@example-app-id::/ws/example-app/feat/gh-311-face' } }))
-  await waitFor(() => assert.equal(within(screen.getByRole('region', { name: 'Needs you' })).getAllByRole('article').length, 3))
+  await waitFor(() => assert.equal(within(screen.getByRole('complementary', { name: 'Needs you' })).getAllByRole('article').length, 3))
 })
 
 test('Merge tickets runs /merge-tickets in the project', async () => {
@@ -132,17 +132,19 @@ test('a project that is merging shows it and does not start a second merge', asy
   assert.match(button.title, /already running/)
 })
 
-test('shows six cards at a time, and all of them on request', async () => {
+test('Needs you is a column beside the projects holding every item, with no Show all', async () => {
   const snapshot = busySnapshot()
   const flagged = snapshot.attention.at(-1)!
   snapshot.attention = Array.from({ length: 8 }, (_, i) => ({ ...flagged, key: `k${i}`, workspaceName: `feat/gh-${i}` }))
   render(<App api={fakeApi(snapshot)} />)
-  const section = await screen.findByRole('region', { name: 'Needs you' })
-  assert.equal(within(section).getAllByRole('article').length, 6)
-  fireEvent.click(within(section).getByRole('button', { name: 'Show all 8' }))
-  assert.equal(within(section).getAllByRole('article').length, 8)
-  fireEvent.click(within(section).getByRole('button', { name: 'Show fewer' }))
-  assert.equal(within(section).getAllByRole('article').length, 6)
+  const column = await screen.findByRole('complementary', { name: 'Needs you' })
+  assert.deepEqual(
+    within(column).getAllByRole('article').map((c) => within(c).getByRole('heading').textContent),
+    Array.from({ length: 8 }, (_, i) => `example-app · feat/gh-${i}`)
+  )
+  assert.equal(within(column).queryByRole('button', { name: /Show all|Show fewer/ }), null)
+  assert.ok(within(column).getByRole('heading', { name: 'Needs you' }))
+  assert.ok(within(column).getByLabelText('8 items'), 'its heading keeps the count')
 })
 
 /** The project card titled `name`. */

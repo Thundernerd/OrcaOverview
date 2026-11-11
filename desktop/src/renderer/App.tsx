@@ -2,7 +2,7 @@
 // All data comes from the main process through `api` (the preload's window.overview).
 import { useEffect, useRef, useState } from 'react'
 import type { AttentionItem, AttentionKind, Project, RunResult, Skill, Snapshot } from '../../../core/protocol.ts'
-import { ATTENTION_LIMIT, KIND, MERGING_TIP, prCell, visibleProjects } from '../../../core/present.ts'
+import { KIND, MERGING_TIP, prCell, visibleProjects } from '../../../core/present.ts'
 import type { OverviewApi } from '../preload/api.ts'
 import { useView, type View } from './view.ts'
 
@@ -343,7 +343,6 @@ export function App({ api }: { api: OverviewApi }) {
   const [busy, setBusy] = useState<string | null>(null)
   const [notice, setNotice] = useState<Notice | null>(null)
   const running = useRef(false)
-  const [showAll, setShowAll] = useState(false)
   const [editing, setEditing] = useState<string | null>(null)
   const view = useView(api)
   useEffect(() => {
@@ -443,18 +442,20 @@ export function App({ api }: { api: OverviewApi }) {
         </div>
       ) : null}
       {callout}
-      <section aria-labelledby="needs-you">
-        <h2 id="needs-you">Needs you</h2>
-        {snapshot.attention.length === 0 ? <p className="muted">Nothing is waiting on you.</p> : null}
-        {(showAll ? snapshot.attention : snapshot.attention.slice(0, ATTENTION_LIMIT)).map((item) => (
-          <AttentionCard key={item.key} item={item} project={byId.get(item.projectId)} actions={actions} />
-        ))}
-        {snapshot.attention.length > ATTENTION_LIMIT ? (
-          <Button variant="ghost" onClick={() => setShowAll(!showAll)}>
-            {showAll ? 'Show fewer' : `Show all ${snapshot.attention.length}`}
-          </Button>
-        ) : null}
-      </section>
+      <aside aria-labelledby="needs-you" className="needs-you">
+        <div className="row heading">
+          <h2 id="needs-you">Needs you</h2>
+          <span className="count" aria-label={`${snapshot.attention.length} items`}>
+            {snapshot.attention.length}
+          </span>
+        </div>
+        <div className="scroll">
+          {snapshot.attention.length === 0 ? <p className="muted">Nothing is waiting on you.</p> : null}
+          {snapshot.attention.map((item) => (
+            <AttentionCard key={item.key} item={item} project={byId.get(item.projectId)} actions={actions} />
+          ))}
+        </div>
+      </aside>
       <section aria-labelledby="projects">
         <h2 id="projects">Projects</h2>
         {visible.length === 0 ? <p className="muted">Orca has no workspaces to show.</p> : null}
