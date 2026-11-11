@@ -74,6 +74,7 @@ npx -p typescript tsc -p core --noEmit  # core alone, without .orca/types
 - **Requests:** the window asks the main process over IPC, with the plugin's request names (`overview.snapshot`, `overview.runSkill`, …).
 - **Menu bar:** the window opens when you start the app. Click the count to bring the window forward, or to hide it when it's already in front. Right-click for Open, Refresh and Quit. Closing the window keeps the app running. It has no Dock icon.
 - **Opening workspaces:** it uses `orca worktree activate` and `orca terminal switch`, since it can't use the plugin API.
+- **Active project with paired servers:** each paired server reports its own last-focused workspace as active. The plugin keeps the one Orca's window shows, through the plugin API. The `orca` CLI can't tell which workspace the window shows (`--worktree active` means the current directory's workspace), so the app keeps this machine's active workspace. While you look at a paired server's workspace in Orca, the app highlights a different project and workspace than the plugin. The needs-you count isn't affected. The engine already accepts the shown workspace as `focusedWorkspace`, for when the CLI can report it.
 
 It needs Node and npm. Run these in `desktop/`:
 

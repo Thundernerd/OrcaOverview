@@ -3,7 +3,7 @@
 // worker and the desktop app both run it, each passing its own storage, notifications and opener.
 import { orcaActions, type Opener, type OrcaJson } from './actions.ts'
 import { orcaJson, surveyAvailable, surveyTickets } from './cli.ts'
-import { buildSnapshot, isMerging, keepOneActive, omittedHosts, tagRemote, type PsWorktree } from './model.ts'
+import { buildSnapshot, findShown, isMerging, keepOneActive, omittedHosts, tagRemote, type HostWorktree, type PsWorktree } from './model.ts'
 import { failedSurvey, parseSurvey } from './survey.ts'
 import type { RunResult, Skill, Snapshot, TicketCounts } from './protocol.ts'
 
@@ -37,6 +37,12 @@ export interface EngineDeps {
    * active workspace it picks the one Orca shows; without it, this machine's active one wins.
    */
   focusedTerminals?: () => Promise<string[]>
+  /**
+   * The workspace Orca shows, for apps outside Orca that can't read its terminals: the host as this
+   * machine's `worktree ps` names it (`local`, or a paired server's `runtime:<id>` from hostScope)
+   * and the worktree id as that host reports it. Checked before `focusedTerminals`.
+   */
+  focusedWorkspace?: () => Promise<HostWorktree | null>
   opener: Opener
   pollMs: number
   log?(message: string): void
@@ -158,10 +164,10 @@ export function createEngine(deps: EngineDeps) {
     const local = await cli.orcaJson<Ps>(['worktree', 'ps'])
     const nextWarnings: string[] = []
     const remote = await Promise.all(
-      omittedHosts(local.hostScope).map(async ({ env }) => {
+      omittedHosts(local.hostScope).map(async ({ env, hostId }) => {
         try {
           const r = await cli.orcaJson<Ps>(['worktree', 'ps', '--environment', env], REMOTE_TIMEOUT_MS)
-          return tagRemote(env, r.worktrees ?? [])
+          return tagRemote(env, r.worktrees ?? [], hostId)
         } catch (error) {
           const message = messageOf(error)
           nextWarnings.push(`${env}: ${message}`)
@@ -175,11 +181,15 @@ export function createEngine(deps: EngineDeps) {
 
   /**
    * Each host reports its own last-focused workspace as active. Keep the one Orca shows: the one
-   * owning the focused workspace's terminals.
+   * `focusedWorkspace` names, else the one owning the focused workspace's terminals, else this
+   * machine's.
    */
   async function pickActive(rows: PsWorktree[]): Promise<PsWorktree[]> {
     const candidates = rows.filter((w) => w.isActive)
     if (candidates.length <= 1) return rows
+    const focused = deps.focusedWorkspace ? await deps.focusedWorkspace().catch(() => null) : null
+    const shown = focused && findShown(candidates, focused)
+    if (shown) return keepOneActive(rows, shown.worktreeId)
     const ids = new Set(deps.focusedTerminals ? await deps.focusedTerminals().catch(() => []) : [])
     const key = `${candidates.map((c) => c.worktreeId).join('|')}#${[...ids].sort().join(',')}`
     if (activeChoice?.key !== key) {
