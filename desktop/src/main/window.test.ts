@@ -32,7 +32,7 @@ function fakeApp() {
     win.emit('close', { preventDefault: () => void (prevented = true) })
     if (!prevented) Object.assign(screen, { window: false, focused: false })
   }
-  const windows = appWindow({
+  const mainWindow = appWindow({
     create: () => {
       screen.created++
       return win
@@ -41,28 +41,28 @@ function fakeApp() {
     focusApp: () => void screen.appFocused++,
     quitting: () => quitting
   })
-  return { windows, screen, win, page, sent, close, quit: () => void (quitting = true) }
+  return { mainWindow, screen, win, page, sent, close, quit: () => void (quitting = true) }
 }
 
 test('showing the window puts the app in the Dock and brings the window forward', () => {
-  const { windows, screen } = fakeApp()
-  windows.show()
+  const { mainWindow, screen } = fakeApp()
+  mainWindow.show()
   assert.equal(screen.window, true)
   assert.equal(screen.dock, true)
   assert.equal(screen.focused, true)
 })
 
 test('closing the window hides it and takes the app out of the Dock; the app keeps running', () => {
-  const { windows, screen, close } = fakeApp()
-  windows.show()
+  const { mainWindow, screen, close } = fakeApp()
+  mainWindow.show()
   close()
   assert.equal(screen.window, false)
   assert.equal(screen.dock, false)
 })
 
 test('while quitting, closing the window really closes it', () => {
-  const { windows, screen, win, close, quit } = fakeApp()
-  windows.show()
+  const { mainWindow, screen, win, close, quit } = fakeApp()
+  mainWindow.show()
   let hidden = false
   win.hide = () => void (hidden = true)
   quit()
@@ -72,18 +72,18 @@ test('while quitting, closing the window really closes it', () => {
 })
 
 test('clicking the menu bar count with the window in front hides it and takes the app out of the Dock', () => {
-  const { windows, screen } = fakeApp()
-  windows.show()
-  windows.toggle()
+  const { mainWindow, screen } = fakeApp()
+  mainWindow.show()
+  mainWindow.toggle()
   assert.equal(screen.window, false)
   assert.equal(screen.dock, false)
 })
 
 test('clicking the menu bar count with the window closed brings it back, Dock icon and all', () => {
-  const { windows, screen, close } = fakeApp()
-  windows.show()
+  const { mainWindow, screen, close } = fakeApp()
+  mainWindow.show()
   close()
-  windows.toggle()
+  mainWindow.toggle()
   assert.equal(screen.window, true)
   assert.equal(screen.dock, true)
   assert.equal(screen.focused, true)
@@ -91,40 +91,41 @@ test('clicking the menu bar count with the window closed brings it back, Dock ic
 })
 
 test('clicking the menu bar count with the window behind other apps brings it forward', () => {
-  const { windows, screen } = fakeApp()
-  windows.show()
+  const { mainWindow, screen } = fakeApp()
+  mainWindow.show()
   screen.focused = false
-  windows.toggle()
+  mainWindow.toggle()
   assert.equal(screen.window, true)
   assert.equal(screen.dock, true)
   assert.equal(screen.focused, true)
+  assert.equal(screen.appFocused, 2, 'the app is brought in front of the one the user is in, each time')
 })
 
 test('minimizing keeps the app in the Dock, and clicking the Dock icon brings the window back', () => {
-  const { windows, screen, win } = fakeApp()
-  windows.show()
+  const { mainWindow, screen, win } = fakeApp()
+  mainWindow.show()
   win.minimize()
   assert.equal(screen.dock, true, 'still in the Dock: the window is still open')
 
-  windows.show()
+  mainWindow.show()
   assert.equal(screen.minimized, false)
   assert.equal(screen.focused, true)
 })
 
 test('clicking the menu bar count with the window minimized brings it back', () => {
-  const { windows, screen, win } = fakeApp()
-  windows.show()
+  const { mainWindow, screen, win } = fakeApp()
+  mainWindow.show()
   win.minimize()
-  windows.toggle()
+  mainWindow.toggle()
   assert.equal(screen.minimized, false)
   assert.equal(screen.dock, true)
 })
 
 test('a notification click with the window closed shows it, in the Dock, on its item', () => {
-  const { windows, screen, sent, close } = fakeApp()
-  windows.show()
+  const { mainWindow, screen, sent, close } = fakeApp()
+  mainWindow.show()
   close()
-  windows.reveal('example-app-id::/ws/example-app/feat-a')
+  mainWindow.reveal('example-app-id::/ws/example-app/feat-a')
   assert.equal(screen.window, true)
   assert.equal(screen.dock, true)
   assert.equal(screen.focused, true)
@@ -132,17 +133,17 @@ test('a notification click with the window closed shows it, in the Dock, on its 
 })
 
 test('a notification click before the page has loaded shows the item once it has', () => {
-  const { windows, page, sent } = fakeApp()
+  const { mainWindow, page, sent } = fakeApp()
   page.loading = true
-  windows.reveal('example-app-id::/ws/example-app/feat-a')
+  mainWindow.reveal('example-app-id::/ws/example-app/feat-a')
   assert.deepEqual(sent, [])
   page.emit('did-finish-load')
   assert.deepEqual(sent, [['overview.reveal', 'example-app-id::/ws/example-app/feat-a']])
 })
 
 test('clicking the summary notification just shows the window', () => {
-  const { windows, screen, sent } = fakeApp()
-  windows.reveal(null)
+  const { mainWindow, screen, sent } = fakeApp()
+  mainWindow.reveal(null)
   assert.equal(screen.window, true)
   assert.equal(screen.dock, true)
   assert.deepEqual(sent, [])

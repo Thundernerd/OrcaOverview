@@ -1,5 +1,7 @@
 // The app's one window and its Dock icon: the app is in the Dock, and so in Cmd-Tab, while the
-// window is open, and only in the menu bar once it's closed.
+// window is open, and only in the menu bar once it's closed. Info.plist's LSUIElement starts the
+// app without a Dock icon, so the icon appears once, when the window first shows, and never
+// flashes at launch.
 
 /** Electron's BrowserWindow, as far as this file uses it. */
 export interface WindowLike {
@@ -24,9 +26,9 @@ export interface DockLike {
   hide(): void
 }
 
-export interface AppWindowDeps {
+export interface AppWindowDeps<W extends WindowLike> {
   /** Makes the window, the first time it's shown. */
-  create(): WindowLike
+  create(): W
   /** `app.dock`; undefined off macOS. */
   dock: DockLike | undefined
   /** Brings the app in front of the app the user is in. */
@@ -35,7 +37,9 @@ export interface AppWindowDeps {
   quitting(): boolean
 }
 
-export interface AppWindow {
+export interface AppWindow<W extends WindowLike> {
+  /** The window, once it has been shown; null before. */
+  current(): W | null
   /** Shows the window in front, and the Dock icon with it. */
   show(): void
   /** Hides the window and the Dock icon when the window is in front; otherwise shows them. */
@@ -47,15 +51,15 @@ export interface AppWindow {
   reveal(worktreeId: string | null): void
 }
 
-export function appWindow(deps: AppWindowDeps): AppWindow {
-  let win: WindowLike | null = null
+export function appWindow<W extends WindowLike>(deps: AppWindowDeps<W>): AppWindow<W> {
+  let win: W | null = null
 
   function hide(w: WindowLike): void {
     w.hide()
     deps.dock?.hide()
   }
 
-  function create(): WindowLike {
+  function create(): W {
     const w = deps.create()
     // Closing hides the window; the app keeps running in the menu bar until Quit.
     w.on('close', (event) => {
@@ -77,6 +81,7 @@ export function appWindow(deps: AppWindowDeps): AppWindow {
   }
 
   return {
+    current: () => win,
     show,
     toggle() {
       if (win?.isVisible() && win.isFocused()) hide(win)

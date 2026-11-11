@@ -19,7 +19,6 @@ const POLL_MS = 5_000
 const orcaJson = orcaJsonAt(process.env.ORCA_OVERVIEW_CLI || ORCA)
 
 let tray: Tray | null = null
-let win: BrowserWindow | null = null
 let quitting = false
 
 /**
@@ -30,7 +29,7 @@ const storage = fileStorage(join(app.getPath('userData'), 'settings.json'))
 
 const notify = desktopNotifier({
   create: (options) => new Notification(options),
-  reveal: (worktreeId) => windows.reveal(worktreeId)
+  reveal: (worktreeId) => mainWindow.reveal(worktreeId)
 })
 
 const engine = createEngine({
@@ -72,15 +71,11 @@ function createWindow(): BrowserWindow {
   })
   if (process.env.ELECTRON_RENDERER_URL) void w.loadURL(process.env.ELECTRON_RENDERER_URL)
   else void w.loadFile(join(import.meta.dirname, '../renderer/index.html'))
-  win = w
   return w
 }
 
-/**
- * The window, and the Dock icon (with the Cmd-Tab entry) while it's open. Info.plist's
- * LSUIElement starts the app without one, so it appears once, when the window first shows.
- */
-const windows = appWindow({
+/** The window, and the Dock icon (with the Cmd-Tab entry) while it's open. */
+const mainWindow = appWindow({
   create: createWindow,
   dock: app.dock,
   // A menu bar or notification click doesn't activate the app; without this the window would
@@ -100,32 +95,33 @@ app.on('window-all-closed', () => undefined)
 if (!app.requestSingleInstanceLock()) app.quit()
 else void app.whenReady().then(start)
 
-app.on('second-instance', () => windows.show())
+app.on('second-instance', () => mainWindow.show())
 // Clicking the Dock icon, or opening the app again while it runs (Finder, Spotlight, `open`),
 // shows the window.
-app.on('activate', () => windows.show())
+app.on('activate', () => mainWindow.show())
 
 function start(): void {
   tray = new Tray(nativeImage.createEmpty())
   tray.setToolTip('Orca Overview')
   setMenuBarTitle('…')
   const menu = Menu.buildFromTemplate([
-    { label: 'Open', click: () => windows.show() },
+    { label: 'Open', click: () => mainWindow.show() },
     { label: 'Refresh', click: () => void engine.refresh() },
     { type: 'separator' },
     { label: 'Quit', click: () => app.quit() }
   ])
-  tray.on('click', () => windows.toggle())
+  tray.on('click', () => mainWindow.toggle())
   tray.on('right-click', () => tray?.popUpContextMenu(menu))
 
   handleRequests(ipcMain, engine)
   handleViewState(ipcMain, storage)
   engine.onSnapshot((s: Snapshot) => {
     setMenuBarTitle(String(s.attention.length))
+    const win = mainWindow.current()
     if (win && !win.isDestroyed()) win.webContents.send('overview.snapshot', s)
   })
   engine.start()
   void requestLocalNetworkAccess(orcaJson)
   // Show the window at launch, so opening the app visibly does something.
-  windows.show()
+  mainWindow.show()
 }
