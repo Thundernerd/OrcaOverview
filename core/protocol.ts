@@ -1,5 +1,5 @@
-// The overview's data, shared by the plugin (src/) and the desktop app. The plugin's panel <-> worker
-// requests that carry it are declared in src/protocol.ts.
+// The overview's data and the requests that carry it, shared by the plugin (src/) and the desktop app
+// (desktop/). The plugin declares OverviewRequests to Orca in src/protocol.ts.
 
 export type AttentionKind = 'agent-waiting' | 'flagged' | 'pr-ready' | 'ci-failing'
 
@@ -107,4 +107,27 @@ export interface Snapshot {
 export interface RunResult {
   how: 'sent' | 'launched'
   message: string
+}
+
+/** The requests a view sends to whatever runs the engine: the plugin's worker or the app's main process. */
+export interface OverviewRequests {
+  /** The latest snapshot (refreshes first when there is none yet). */
+  'overview.snapshot': { output: Snapshot }
+  /** Re-reads Orca's workspaces now. */
+  'overview.refresh': { output: Snapshot }
+  /** Re-runs the ticket survey for one project. */
+  'overview.refreshTickets': { input: { projectId: string }; output: Snapshot }
+  /** Runs one of the ticket skills in the project's main workspace. */
+  'overview.runSkill': {
+    input: { projectId: string; skill: Skill; args?: string }
+    output: RunResult
+  }
+  /** Shows a workspace in Orca. */
+  'overview.open': { input: { worktreeId: string }; output: { ok: true } }
+  /** Types a reply into the workspace's waiting agent. */
+  'overview.reply': { input: { worktreeId: string; text: string }; output: RunResult }
+  /** Clears the workspace's unread flag. */
+  'overview.markRead': { input: { worktreeId: string }; output: Snapshot }
+  /** Hides or shows a project. */
+  'overview.setHidden': { input: { projectId: string; hidden: boolean }; output: Snapshot }
 }
