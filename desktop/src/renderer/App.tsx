@@ -18,12 +18,16 @@ const REMOTE_TIP = 'Orca cannot open a paired server’s workspace from here yet
 /** What the cards can do; each runs one request at a time through `act`. */
 interface Actions {
   busy: boolean
+  /** The one open input: `reply:<attention key>` or `write:<project id>`, or null. */
+  editing: string | null
+  setEditing(key: string | null): void
   refresh(): void
   open(worktreeId: string): void
   /** Resolves to whether it worked. */
   reply(worktreeId: string, text: string): Promise<boolean>
   markRead(worktreeId: string): void
-  runSkill(p: Project, skill: Skill, args?: string): void
+  /** Resolves to whether it worked. */
+  runSkill(p: Project, skill: Skill, args?: string): Promise<boolean>
   setHidden(projectId: string, hidden: boolean): void
   refreshTickets(projectId: string): void
 }
@@ -103,7 +107,7 @@ function Button({ children, disabled, title, label, onClick, variant = 'outline'
 }
 
 function AttentionCard({ item, project, actions }: { item: AttentionItem; project: Project | undefined; actions: Actions }) {
-  const [replying, setReplying] = useState(false)
+  const replying = actions.editing === `reply:${item.key}`
   const has = (k: AttentionKind) => item.kinds.includes(k)
   const remote = Boolean(project?.host)
   const tip = remote ? REMOTE_TIP : undefined
@@ -143,7 +147,7 @@ function AttentionCard({ item, project, actions }: { item: AttentionItem; projec
           </Button>
         ) : null}
         {has('agent-waiting') ? (
-          <Button disabled={actions.busy} onClick={() => setReplying(!replying)}>
+          <Button disabled={actions.busy} onClick={() => actions.setEditing(replying ? null : `reply:${item.key}`)}>
             Reply
           </Button>
         ) : null}
@@ -164,7 +168,7 @@ function AttentionCard({ item, project, actions }: { item: AttentionItem; projec
           placeholder="Type a reply and press Enter"
           onSend={async (text) => {
             const ok = await actions.reply(item.worktreeId, text)
-            if (ok) setReplying(false)
+            if (ok) actions.setEditing(null)
             return ok
           }}
         />
@@ -217,7 +221,7 @@ function ProjectCard({ p, view, actions }: { p: Project; view: View; actions: Ac
   const isOpen = view.state.expanded[p.id] ?? p.attentionCount > 0
   const disabled = actions.busy || !p.mainWorktreeId
   const ready = p.tickets?.ready ?? 0
-  const [writing, setWriting] = useState(false)
+  const writing = actions.editing === `write:${p.id}`
   return (
     <article aria-label={p.name} className={`card project${p.isActive ? ' active' : ''}`}>
       <div className="row between">
@@ -281,7 +285,7 @@ function ProjectCard({ p, view, actions }: { p: Project; view: View; actions: Ac
             <Button variant={p.cleanupCount > 0 ? 'solid' : 'outline'} disabled={disabled} onClick={() => actions.runSkill(p, 'clean-workspaces')}>
               Clean workspaces
             </Button>
-            <Button disabled={disabled} onClick={() => setWriting(!writing)}>
+            <Button disabled={disabled} onClick={() => actions.setEditing(writing ? null : `write:${p.id}`)}>
               Write ticket
             </Button>
           </div>
@@ -289,9 +293,10 @@ function ProjectCard({ p, view, actions }: { p: Project; view: View; actions: Ac
             <Prompt
               label={`Describe the new ticket for ${p.name}`}
               placeholder="Describe the ticket, then press Enter"
-              onSend={(text) => {
-                setWriting(false)
-                actions.runSkill(p, 'write-ticket', text)
+              onSend={async (text) => {
+                const ok = await actions.runSkill(p, 'write-ticket', text)
+                if (ok) actions.setEditing(null)
+                return ok
               }}
             />
           ) : null}
@@ -304,7 +309,9 @@ function ProjectCard({ p, view, actions }: { p: Project; view: View; actions: Ac
             >
               Workspaces ({p.workspaces.length})
             </summary>
-            <WorkspaceTable p={p} actions={actions} />
+            <div className="table-scroll">
+              <WorkspaceTable p={p} actions={actions} />
+            </div>
           </details>
         </>
       )}
@@ -313,6 +320,19 @@ function ProjectCard({ p, view, actions }: { p: Project; view: View; actions: Ac
 }
 
 type Notice = { tone: 'success' | 'danger'; text: string }
+
+/** What the last action did, or why it failed. */
+function NoticeCallout({ notice, onDismiss }: { notice: Notice; onDismiss(): void }) {
+  return (
+    <div role={notice.tone === 'danger' ? 'alert' : 'status'} className={`callout ${notice.tone}`}>
+      <strong>{notice.tone === 'danger' ? 'That did not work' : 'Done'}</strong>
+      <span>{notice.text}</span>
+      <Button variant="ghost" label="Dismiss" onClick={onDismiss}>
+        ×
+      </Button>
+    </div>
+  )
+}
 
 function message(e: unknown): string {
   return e instanceof Error ? e.message : String(e)
@@ -324,9 +344,13 @@ export function App({ api }: { api: OverviewApi }) {
   const [notice, setNotice] = useState<Notice | null>(null)
   const running = useRef(false)
   const [showAll, setShowAll] = useState(false)
+  const [editing, setEditing] = useState<string | null>(null)
   const view = useView(api)
   useEffect(() => {
-    void api.request('overview.snapshot').then(setSnapshot)
+    api
+      .request('overview.snapshot')
+      .then(setSnapshot)
+      .catch((e: unknown) => setNotice({ tone: 'danger', text: message(e) }))
     return api.onSnapshot(setSnapshot)
   }, [api])
 
@@ -353,18 +377,28 @@ export function App({ api }: { api: OverviewApi }) {
 
   const actions: Actions = {
     busy: busy !== null,
+    editing,
+    setEditing,
     refresh: () => void act('Refresh', async () => setSnapshot(await api.request('overview.refresh'))),
     open: (worktreeId) => void act('Open', () => api.request('overview.open', { worktreeId })),
     reply: (worktreeId, text) => act('Reply', () => api.request('overview.reply', { worktreeId, text }), said),
     markRead: (worktreeId) => void act('Mark read', async () => setSnapshot(await api.request('overview.markRead', { worktreeId }))),
     runSkill: (p, skill, args) =>
-      void act(`/${skill}`, () => api.request('overview.runSkill', args ? { projectId: p.id, skill, args } : { projectId: p.id, skill }), said),
+      act(`/${skill}`, () => api.request('overview.runSkill', args ? { projectId: p.id, skill, args } : { projectId: p.id, skill }), said),
     setHidden: (projectId, hidden) =>
       void act(hidden ? 'Hide' : 'Show', async () => setSnapshot(await api.request('overview.setHidden', { projectId, hidden }))),
     refreshTickets: (projectId) => void act('Tickets', async () => setSnapshot(await api.request('overview.refreshTickets', { projectId })))
   }
 
-  if (!snapshot) return <p className="muted">Reading your workspaces…</p>
+  const callout = notice ? <NoticeCallout notice={notice} onDismiss={() => setNotice(null)} /> : null
+  if (!snapshot) {
+    return (
+      <main>
+        {callout}
+        <p className="muted">Reading your workspaces…</p>
+      </main>
+    )
+  }
   const byId = new Map(snapshot.projects.map((p) => [p.id, p]))
   const visible = visibleProjects(snapshot.projects, view.state.pinned)
   const hidden = snapshot.projects.filter((p) => p.hidden)
@@ -408,14 +442,7 @@ export function App({ api }: { api: OverviewApi }) {
           <span>{snapshot.error}</span>
         </div>
       ) : null}
-      {notice ? (
-        <div role={notice.tone === 'danger' ? 'alert' : 'status'} className={`callout ${notice.tone}`}>
-          <span>{notice.text}</span>
-          <Button variant="ghost" label="Dismiss" onClick={() => setNotice(null)}>
-            ×
-          </Button>
-        </div>
-      ) : null}
+      {callout}
       <section aria-labelledby="needs-you">
         <h2 id="needs-you">Needs you</h2>
         {snapshot.attention.length === 0 ? <p className="muted">Nothing is waiting on you.</p> : null}
@@ -430,6 +457,7 @@ export function App({ api }: { api: OverviewApi }) {
       </section>
       <section aria-labelledby="projects">
         <h2 id="projects">Projects</h2>
+        {visible.length === 0 ? <p className="muted">Orca has no workspaces to show.</p> : null}
         {visible.map((p) => (
           <ProjectCard key={p.id} p={p} view={view} actions={actions} />
         ))}

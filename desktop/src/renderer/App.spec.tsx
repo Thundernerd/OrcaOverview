@@ -309,3 +309,48 @@ test('follows each new snapshot the main process sends', async () => {
   act(() => push(busySnapshot()))
   assert.ok(within(screen.getByRole('banner')).getByText('4 need you'))
 })
+
+/** fakeApi, but `channel` fails with `error`. */
+function failing(channel: string, error: string, api: OverviewApi = fakeApi()): OverviewApi {
+  const request = api.request as (c: string, i?: unknown) => Promise<unknown>
+  return { ...api, request: ((c: string, i?: unknown) => (c === channel ? Promise.reject(new Error(error)) : request(c, i))) as OverviewApi['request'] }
+}
+
+test('a ticket that could not be sent stays in its input', async () => {
+  render(<App api={failing('overview.runSkill', 'No idle session')} />)
+  const atlas = await projectCard('atlas')
+  await press(within(atlas).getByRole('button', { name: 'Write ticket' }))
+  const input = within(atlas).getByRole('textbox', { name: 'Describe the new ticket for atlas' }) as HTMLInputElement
+  fireEvent.change(input, { target: { value: 'Add dark mode' } })
+  fireEvent.submit(input)
+  assert.match((await screen.findByRole('alert')).textContent!, /write-ticket: No idle session/)
+  assert.equal((within(atlas).getByRole('textbox') as HTMLInputElement).value, 'Add dark mode')
+})
+
+test('one reply or ticket input is open at a time', async () => {
+  render(<App api={fakeApi()} />)
+  const blocked = await card('refactor/gh-65-tier-type')
+  await press(within(blocked).getByRole('button', { name: 'Reply' }))
+  assert.equal(screen.getAllByRole('textbox').length, 1)
+  await press(within(await projectCard('beacon')).getByRole('button', { name: 'Write ticket' }))
+  assert.deepEqual(screen.getAllByRole('textbox').map((t) => t.getAttribute('aria-label')), ['Describe the new ticket for beacon'])
+})
+
+test('a pin made before the saved view state arrives is kept', async () => {
+  let arrive: (v: ViewState) => void = () => undefined
+  const api = { ...fakeApi(), loadView: () => new Promise<ViewState>((r) => (arrive = r)) }
+  render(<App api={api} />)
+  fireEvent.click(within(await projectCard('Quiet')).getByRole('button', { name: 'Pin Quiet' }))
+  await act(async () => arrive({ pinned: {}, minimized: { 'atlas-id': true }, expanded: {} }))
+  assert.equal(projectNames()[0], 'Quiet')
+})
+
+test('says so when Orca has no projects', async () => {
+  render(<App api={fakeApi({ projects: [], attention: [], updatedAt: 1, error: null, warnings: [] })} />)
+  assert.ok(await screen.findByText('Orca has no workspaces to show.'))
+})
+
+test('shows why the first snapshot could not be read', async () => {
+  render(<App api={failing('overview.snapshot', 'orca: command not found')} />)
+  assert.match((await screen.findByRole('alert')).textContent!, /orca: command not found/)
+})

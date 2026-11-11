@@ -2,7 +2,7 @@
 // (OverviewRequests in core/protocol.ts), by passing each one to the engine.
 import type { Engine, EngineDeps } from '../../../core/engine.ts'
 import type { OverviewRequests, RequestInput } from '../../../core/protocol.ts'
-import type { ViewState } from '../preload/api.ts'
+import { EMPTY_VIEW, type ViewState } from '../preload/api.ts'
 
 /** The engine calls the window can reach; tests pass a fake. */
 export type RequestEngine = Pick<Engine, 'snapshot' | 'refresh' | 'refreshTickets' | 'runSkill' | 'open' | 'reply' | 'markRead' | 'setHidden'>
@@ -43,6 +43,6 @@ const K_VIEW = 'view'
  * hidden projects in, so the app has one place to save settings in (#7).
  */
 export function handleViewState(ipc: IpcMainLike, storage: EngineDeps['storage']): void {
-  ipc.handle('view.load', async () => ((await storage.get(K_VIEW)) as ViewState | undefined) ?? { pinned: {}, minimized: {}, expanded: {} })
+  ipc.handle('view.load', async () => ((await storage.get(K_VIEW)) as ViewState | undefined) ?? EMPTY_VIEW)
   ipc.handle('view.save', (_event, state: ViewState) => storage.set(K_VIEW, state))
 }

@@ -11,6 +11,9 @@ export interface ViewState {
   expanded: Record<string, boolean>
 }
 
+/** Nothing pinned, minimized or opened by hand. */
+export const EMPTY_VIEW: ViewState = { pinned: {}, minimized: {}, expanded: {} }
+
 export interface OverviewApi {
   /** Sends one of the plugin's requests (OverviewRequests) to the main process. */
   request<K extends keyof OverviewRequests>(
