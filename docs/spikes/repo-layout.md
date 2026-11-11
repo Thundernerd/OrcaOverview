@@ -6,7 +6,7 @@ Issue: #2. Run on 2026-11-11 with Orca 1.4.253, Node 26.3.0, npm 11.16.0 and Ele
 
 Keep the plugin at the repository root. The desktop app goes in `desktop/` next to it:
 
-```
+```text
 orca-plugin.json     plugin manifest (unchanged)
 src/                 plugin worker and panel
 core/                shared, pure code: the plugin and the desktop app import it
@@ -15,15 +15,15 @@ desktop/             Electron app, with its own package.json and node_modules
 
 - **`core/` must be inside the plugin root.** Panels can import only files inside the plugin folder (see [core/ outside the plugin](#core-outside-the-plugin) below). With the plugin at the root, `src/` imports `../core/…` and `desktop/` imports `../core/…` through its own build.
 - **Install from GitHub:** `orca plugin install Thundernerd/OrcaOverview`, or `…@vX.Y.Z` for a release. Orca fetches the repository pinned to one commit, so it gets only committed files. `desktop/node_modules` is ignored by git and never ships.
-- **Develop:** `orca plugin dev load .` and `orca plugin dev reload .` keep working from a checkout where `desktop/node_modules` is installed. So do `check`, `test` and `validate`.
+- **Develop:** `orca plugin check`, `orca plugin test` and `orca plugin validate` keep working from a checkout where `desktop/node_modules` is installed. So do `orca plugin dev load` and `orca plugin dev reload`: a content-only copy loaded and reloaded, and a worker copy reached the approval step. Its approval fingerprint doesn't change when `desktop/node_modules` changes, so an `npm i` there doesn't ask for approval again. No worker copy was approved and run: approving starts its worker on the host, and that is for the person at the machine to decide. Run `orca plugin dev reload .` once in #3, after `desktop/` is installed.
 
-We don't need the `plugin/` subfolder. The root layout passes the commands the ticket lists, and moving the plugin to `plugin/` would put `core/` outside the plugin.
+We don't need the `plugin/` subfolder. The root layout passes the commands the issue lists, and moving the plugin to `plugin/` would put `core/` outside the plugin.
 
 ## Rules for #3 and later
 
 1. Don't install from a working folder (`orca plugin install .`) when `desktop/node_modules` is installed. It fails on the symlinks in `node_modules`, and it would hit the 50 MiB limit even without them. Install from GitHub, or from a clean `git clone`.
-2. Keep `desktop/` build output (for example `desktop/out/`, `desktop/dist/`) and `node_modules/` ignored by git. Every committed file under `desktop/` ships with the plugin and counts toward the 2,000-file and 50 MiB limits.
-3. `orca plugin test` runs every `*.test.ts(x)` under the root, `desktop/` included, with `node:test`. It skips only `node_modules`, `.orca`, `dist` and dot-folders. So desktop tests must either run under `node:test` without Electron or use a name that `plugin test` doesn't match.
+2. Keep `desktop/` build output (for example `desktop/out/`, `desktop/dist/`) and `node_modules/` ignored by git. Every committed file under `desktop/` ships with the plugin and counts toward the plugin limits: "A plugin holds at most 2,000 files and 50 MiB" (Orca's plugin authoring guide, Gotchas).
+3. `orca plugin test` runs every `*.test.ts(x)` under the root, `desktop/` included, with `node:test` (or vitest, when the plugin has its own in `node_modules`). It skips only `node_modules`, `.orca`, `dist` and dot-folders. So desktop tests must either run under that runner without Electron or use a name that `orca plugin test` doesn't match.
 4. Add `core` to `include` in `tsconfig.json` when `core/` is created. `desktop/` gets its own `tsconfig.json`.
 5. With npm 11, `npm i electron` doesn't run Electron's install script, so the binary is missing. Run `node node_modules/electron/install.js` once, or allow the script.
 
@@ -34,7 +34,7 @@ We don't need the `plugin/` subfolder. The root layout passes the commands the t
 | `orca plugin validate . --json` | No | ok |
 | `orca plugin check . --json` | No | ok |
 | `orca plugin test . --json` | Skipped by name | ok |
-| `orca plugin dev load .` / `dev reload . --json` | No | ok |
+| `orca plugin dev load` / `dev reload --json` (on copies) | No | ok (content-only copy); approval step, same fingerprint (worker copy) |
 | `orca plugin inspect . --json` | Yes, hashes every file | `plugin_invalid` |
 | `orca plugin install <folder> --json` | Yes, hashes every file | `plugin_install_failed` |
 | Install from a clean clone (committed files only) | Nothing to count | ok |
@@ -77,7 +77,7 @@ ok: true, fileCount: 29, totalBytes: 170821
 
 So `validate`, `check` and `test` never look at `node_modules`, but anything that hashes the folder counts it in full.
 
-A `desktop/smoke.test.ts` is picked up by `plugin test`:
+A `desktop/smoke.test.ts` is picked up by `orca plugin test`:
 
 ```console
 $ orca plugin test . --json
@@ -95,7 +95,19 @@ $ orca plugin dev load <scratch>/root-copy --json    # exit 3
 "code":"approval_required" … "Fingerprint: ap1-…"
 ```
 
-It wasn't approved. A content-only copy (from `orca plugin create --template theme`) needs no approval, so it shows the whole load:
+It wasn't approved. Running `dev load` on the worker copy again after each change gave the same fingerprint every time:
+
+```console
+with desktop/node_modules           approval_required ap1-2fcc854c…
+plus desktop/node_modules/fake-pkg  approval_required ap1-2fcc854c…
+without desktop/node_modules        approval_required ap1-2fcc854c…
+after editing src/model.ts          approval_required ap1-2fcc854c…
+after adding desktop/new-source.ts  approval_required ap1-2fcc854c…
+```
+
+So the dev approval covers the manifest's access, not the folder's files. That matches the approval message: "Later code edits in this development folder run without asking again".
+
+A content-only copy (from `orca plugin create --template theme`) needs no approval, so it shows the whole load:
 
 ```console
 $ orca plugin dev load <scratch>/theme-spike --json   # exit 0
