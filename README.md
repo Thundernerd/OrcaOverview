@@ -68,10 +68,12 @@ npx -p typescript tsc -p core --noEmit  # core alone, without .orca/types
 
 ## Desktop app
 
-`desktop/` is a macOS menu bar app that shows the overview outside Orca. The menu bar shows how many items need you (the same count as the plugin's status bar). Its window does everything the panel does: Needs you, the project cards and their buttons, pin, minimize and hide. It's laid out for a desktop screen: the project cards fill the window as a grid, and Needs you is a column on the right that scrolls on its own. A window narrower than about 760 px shows one column, Needs you first. Unlike the panel, it lists every item that needs you, with no Show all. It follows macOS light and dark mode. Pin, minimize, hide and the open workspace tables are kept in the main process, in memory: they reset when the app quits. Saved settings and notifications come later.
+`desktop/` is a macOS menu bar app that shows the overview outside Orca. The menu bar shows how many items need you (the same count as the plugin's status bar). Its window does everything the panel does: Needs you, the project cards and their buttons, pin, minimize and hide. It's laid out for a desktop screen: the project cards fill the window as a grid, and Needs you is a column on the right that scrolls on its own. A window narrower than about 760 px shows one column, Needs you first. Unlike the panel, it lists every item that needs you, with no Show all. It follows macOS light and dark mode.
 
 - **Engine:** the main process runs the same engine as the plugin. Orca's events don't reach apps outside it, so it polls every 5 s.
 - **Requests:** the window asks the main process over IPC, with the plugin's request names (`overview.snapshot`, `overview.runSkill`, …).
+- **Saved settings:** pins, minimized and hidden projects, the open workspace tables, ticket counts and what you've been notified about are saved in `~/Library/Application Support/Orca Overview/settings.json`. They survive a restart, and the counts show right away. A missing or unreadable file starts the app with nothing saved.
+- **Notifications:** something new that needs you shows a macOS notification, like the plugin's. A restart doesn't announce what you were already told about. Clicking a notification brings the window forward.
 - **Menu bar:** the window opens when you start the app. Click the count to bring the window forward, or to hide it when it's already in front. Right-click for Open, Refresh and Quit. Closing the window keeps the app running. It has no Dock icon.
 - **Opening workspaces:** it uses `orca worktree activate` and `orca terminal switch`, since it can't use the plugin API.
 - **Active project with paired servers:** each paired server reports its own last-focused workspace as active. The plugin keeps the one Orca's window shows, through the plugin API. The `orca` CLI can't tell which workspace the window shows (`--worktree active` means the current directory's workspace), so the app keeps this machine's active workspace. While you look at a paired server's workspace in Orca, the app highlights a different project and workspace than the plugin. The needs-you count isn't affected. The engine already accepts the shown workspace as `focusedWorkspace`, for when the CLI can report it ([stablyai/orca#41184](https://github.com/stablyai/orca/issues/41184)).
@@ -84,7 +86,7 @@ node node_modules/electron/install.js   # npm 11 skips Electron's install script
 npm run dev         # run it from source, with live reload
 npm run build       # an unsigned app in dist/mac-<arch>/Orca Overview.app
 npm test            # unit tests, and the window's component tests (*.spec.tsx)
-npm run smoke       # launches the built app against a fake orca CLI
+npm run smoke       # launches the built app against a fake orca CLI, with its own user-data folder
 npm run typecheck
 ```
 
