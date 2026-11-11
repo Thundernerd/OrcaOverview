@@ -20,6 +20,8 @@ export function deactivate(): void {
 
 /** Wires the engine to Orca; tests pass a fake `orca` CLI as `cli`. */
 export function wire(orca: OrcaWorkerApi, cli?: EngineCli): void {
+  // Activated again without a deactivate: stop the previous engine's timers first.
+  deactivate()
   const engine = createEngine({
     storage: {
       get: (key) => orca.storage.get(key),
