@@ -60,8 +60,10 @@ function setMenuBarTitle(title: string): void {
 
 function createWindow(): BrowserWindow {
   const w = new BrowserWindow({
-    width: 560,
-    height: 780,
+    // Wide enough for the projects grid beside the Needs you column; narrower than 760px the
+    // window falls back to one column, so it can still be made small.
+    width: 1200,
+    height: 800,
     minWidth: 380,
     show: false,
     title: 'Orca Overview',

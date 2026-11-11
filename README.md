@@ -68,7 +68,7 @@ npx -p typescript tsc -p core --noEmit  # core alone, without .orca/types
 
 ## Desktop app
 
-`desktop/` is a macOS menu bar app that shows the overview outside Orca. The menu bar shows how many items need you (the same count as the plugin's status bar). Its window does everything the panel does: Needs you, the project cards and their buttons, pin, minimize and hide. It follows macOS light and dark mode.
+`desktop/` is a macOS menu bar app that shows the overview outside Orca. The menu bar shows how many items need you (the same count as the plugin's status bar). Its window does everything the panel does: Needs you, the project cards and their buttons, pin, minimize and hide. It's laid out for a desktop screen: the project cards fill the window as a grid, and Needs you is a column on the right that scrolls on its own. A window narrower than about 760 px shows one column, Needs you first. Unlike the panel, it lists every item that needs you, with no Show all. It follows macOS light and dark mode.
 
 - **Engine:** the main process runs the same engine as the plugin. Orca's events don't reach apps outside it, so it polls every 5 s.
 - **Requests:** the window asks the main process over IPC, with the plugin's request names (`overview.snapshot`, `overview.runSkill`, …).

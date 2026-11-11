@@ -2,7 +2,7 @@
 // All data comes from the main process through `api` (the preload's window.overview).
 import { useEffect, useRef, useState } from 'react'
 import type { AttentionItem, AttentionKind, Project, RunResult, Skill, Snapshot } from '../../../core/protocol.ts'
-import { ATTENTION_LIMIT, KIND, MERGING_TIP, prCell, visibleProjects } from '../../../core/present.ts'
+import { KIND, MERGING_TIP, prCell, visibleProjects } from '../../../core/present.ts'
 import type { OverviewApi } from '../preload/api.ts'
 import { useView, type View } from './view.ts'
 
@@ -343,7 +343,6 @@ export function App({ api }: { api: OverviewApi }) {
   const [busy, setBusy] = useState<string | null>(null)
   const [notice, setNotice] = useState<Notice | null>(null)
   const running = useRef(false)
-  const [showAll, setShowAll] = useState(false)
   const [editing, setEditing] = useState<string | null>(null)
   const view = useView(api)
   useEffect(() => {
@@ -430,54 +429,69 @@ export function App({ api }: { api: OverviewApi }) {
           </p>
         ) : null}
       </header>
-      {snapshot.warnings.map((w) => (
-        <div key={w} role="status" className="callout warning">
-          <strong>A paired server could not be read</strong>
-          <span>{w}</span>
-        </div>
-      ))}
-      {snapshot.error ? (
-        <div role="alert" className="callout danger">
-          <strong>Could not read Orca’s workspaces</strong>
-          <span>{snapshot.error}</span>
-        </div>
-      ) : null}
-      {callout}
-      <section aria-labelledby="needs-you">
-        <h2 id="needs-you">Needs you</h2>
-        {snapshot.attention.length === 0 ? <p className="muted">Nothing is waiting on you.</p> : null}
-        {(showAll ? snapshot.attention : snapshot.attention.slice(0, ATTENTION_LIMIT)).map((item) => (
-          <AttentionCard key={item.key} item={item} project={byId.get(item.projectId)} actions={actions} />
+      {/* Grouped so that, in the wide layout, a pile of notices scrolls instead of squeezing both columns. */}
+      <div className="notices">
+        {snapshot.warnings.map((w) => (
+          <div key={w} role="status" className="callout warning">
+            <strong>A paired server could not be read</strong>
+            <span>{w}</span>
+          </div>
         ))}
-        {snapshot.attention.length > ATTENTION_LIMIT ? (
-          <Button variant="ghost" onClick={() => setShowAll(!showAll)}>
-            {showAll ? 'Show fewer' : `Show all ${snapshot.attention.length}`}
-          </Button>
+        {snapshot.error ? (
+          <div role="alert" className="callout danger">
+            <strong>Could not read Orca’s workspaces</strong>
+            <span>{snapshot.error}</span>
+          </div>
         ) : null}
-      </section>
-      <section aria-labelledby="projects">
-        <h2 id="projects">Projects</h2>
-        {visible.length === 0 ? <p className="muted">Orca has no workspaces to show.</p> : null}
-        {visible.map((p) => (
-          <ProjectCard key={p.id} p={p} view={view} actions={actions} />
-        ))}
-        {hidden.length > 0 ? (
-          <details aria-label={`Hidden projects (${hidden.length})`}>
-            <summary>Hidden projects ({hidden.length})</summary>
-            {hidden.map((p) => (
-              <div key={p.id} className="row between">
-                <span>
-                  {p.name}
-                  {p.attentionCount ? ` · ${p.attentionCount} flagged` : ''}
-                </span>
-                <Button variant="ghost" label={`Show ${p.name}`} onClick={() => actions.setHidden(p.id, false)}>
-                  Show
-                </Button>
-              </div>
+        {callout}
+      </div>
+      {/* Needs you comes first, so a narrow window stacks it above the projects; a wide one puts it on the right. */}
+      <div className="columns">
+        <aside aria-labelledby="needs-you" className="needs-you">
+          {/* The column is named "Needs you"; its heading also shows the count. */}
+          <h2>
+            <span id="needs-you">Needs you</span> <span className="count">{snapshot.attention.length}</span>
+          </h2>
+          <div className="scroll">
+            {snapshot.attention.length === 0 ? <p className="muted">Nothing is waiting on you.</p> : null}
+            {snapshot.attention.map((item) => (
+              <AttentionCard key={item.key} item={item} project={byId.get(item.projectId)} actions={actions} />
             ))}
-          </details>
-        ) : null}
-      </section>
+          </div>
+        </aside>
+        <section aria-labelledby="projects" className="projects">
+          <h2 id="projects">Projects</h2>
+          <div className="scroll">
+            {visible.length === 0 ? (
+              <p className="muted">Orca has no workspaces to show.</p>
+            ) : (
+              <ul className="project-grid" aria-label="Project cards">
+                {visible.map((p) => (
+                  <li key={p.id}>
+                    <ProjectCard p={p} view={view} actions={actions} />
+                  </li>
+                ))}
+              </ul>
+            )}
+            {hidden.length > 0 ? (
+              <details aria-label={`Hidden projects (${hidden.length})`}>
+                <summary>Hidden projects ({hidden.length})</summary>
+                {hidden.map((p) => (
+                  <div key={p.id} className="row between">
+                    <span>
+                      {p.name}
+                      {p.attentionCount ? ` · ${p.attentionCount} flagged` : ''}
+                    </span>
+                    <Button variant="ghost" label={`Show ${p.name}`} onClick={() => actions.setHidden(p.id, false)}>
+                      Show
+                    </Button>
+                  </div>
+                ))}
+              </details>
+            ) : null}
+          </div>
+        </section>
+      </div>
     </main>
   )
 }
