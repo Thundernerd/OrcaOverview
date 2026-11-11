@@ -17,18 +17,17 @@ declare module 'node:os' {
 declare module 'node:path' {
   export function join(...parts: string[]): string
 }
-// For core's tests, which run under `orca plugin test` and `node --test core/`.
+// For core's tests, which run under `orca plugin test` and `node --test 'core/*.test.ts'`.
 declare module 'node:test' {
   export function test(name: string, fn: () => unknown): Promise<void>
 }
 declare module 'node:assert/strict' {
   const assert: {
-    (value: unknown, message?: string): asserts value
     ok(value: unknown, message?: string): asserts value
     equal<T>(actual: unknown, expected: T, message?: string): asserts actual is T
     deepEqual<T>(actual: unknown, expected: T, message?: string): asserts actual is T
     match(value: string, pattern: RegExp, message?: string): void
-    rejects(block: Promise<unknown> | (() => Promise<unknown>), error?: RegExp | Error, message?: string): Promise<void>
+    rejects(promise: Promise<unknown>, error?: RegExp | Error, message?: string): Promise<void>
   }
   export default assert
 }
