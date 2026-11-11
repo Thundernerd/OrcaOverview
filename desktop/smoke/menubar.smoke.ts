@@ -29,7 +29,7 @@ const row = (name: string, extra: object = {}) => ({
 })
 
 /** Two workspaces flagged unread: two items need you. */
-const PS = {
+const TWO_UNREAD = {
   ok: true,
   result: {
     worktrees: [
@@ -41,7 +41,7 @@ const PS = {
   }
 }
 
-/** A stand-in for the `orca` CLI: `worktree ps` lists PS, anything else succeeds with nothing. */
+/** A stand-in for the `orca` CLI: `worktree ps` lists TWO_UNREAD, anything else succeeds with nothing. */
 function fakeOrca(dir: string): string {
   const file = join(dir, 'orca')
   writeFileSync(
@@ -49,7 +49,7 @@ function fakeOrca(dir: string): string {
     `#!/bin/sh
 if [ "$1 $2" = "worktree ps" ]; then
   cat <<'JSON'
-${JSON.stringify(PS)}
+${JSON.stringify(TWO_UNREAD)}
 JSON
 else
   echo '{"ok":true,"result":{}}'
@@ -79,7 +79,10 @@ test('the built app shows the needs-you count in the menu bar', async () => {
       }
       app.stdout.on('data', read)
       app.stderr.on('data', read)
-      app.on('exit', (code) => reject(new Error(`the app exited (${code}) before showing a count; output:\n${out}`)))
+      app.on('exit', (code) => {
+        clearTimeout(timer)
+        reject(new Error(`the app exited (${code}) before showing a count; output:\n${out}`))
+      })
     })
     assert.equal(title, '2')
   } finally {
