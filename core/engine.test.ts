@@ -108,6 +108,22 @@ test('new attention notifies once, and a new kind on the same workspace notifies
   engine.stop()
 })
 
+test('each notification names the workspace it is about; the summary of the rest names none', async () => {
+  const { cli, engineCli } = fakeCli([main('atlas')])
+  const targets: (string | undefined)[] = []
+  const { deps } = fakeDeps(engineCli, { notify: async (_title, _body, worktreeId) => void targets.push(worktreeId) })
+  const engine = createEngine(deps)
+  await engine.refresh()
+
+  cli.rows = [main('atlas'), ...['a', 'b', 'c', 'd', 'e'].map((n) => wt('atlas', `feat-${n}`, { unread: true }))]
+  await engine.refresh()
+  assert.equal(targets.length, 4)
+  assert.equal(new Set(targets.slice(0, 3)).size, 3, 'three different workspaces')
+  assert.ok(targets.slice(0, 3).every((id) => id?.startsWith('atlas-id::/ws/atlas/feat-')))
+  assert.equal(targets[3], undefined)
+  engine.stop()
+})
+
 test('the first run ever announces nothing that is already there', async () => {
   const { engineCli } = fakeCli([main('atlas'), wt('atlas', 'feat-a', { unread: true })])
   const { deps, notes } = fakeDeps(engineCli)
@@ -133,6 +149,26 @@ test('stale surveys run at most two at a time, and the next starts when one ends
   cli.finishSurveys[0]()
   await settle()
   assert.deepEqual(cli.surveys, ['/ws/atlas/main', '/ws/beacon/main', '/ws/comet/main'])
+  engine.stop()
+})
+
+test('a survey whose counts cannot be saved still shows them, and logs why', async () => {
+  const { cli, engineCli } = fakeCli([main('atlas'), wt('atlas', 'feat-gh-1-a', { linkedIssue: 1 })])
+  cli.surveyAvailable = true
+  const logs: string[] = []
+  const { deps } = fakeDeps(engineCli, { log: (m) => void logs.push(m) })
+  deps.storage.set = async () => {
+    throw new Error('disk full')
+  }
+  const engine = createEngine(deps)
+  await engine.refresh()
+  cli.finishSurveys[0]()
+  await settle()
+  await settle()
+  const project = engine.snapshot()?.projects[0]
+  assert.equal(project?.ticketsLoading, false)
+  assert.ok(project?.tickets, 'the counts show')
+  assert.ok(logs.some((m) => m.includes('ticket counts') && m.includes('disk full')), `logged: ${logs.join('; ')}`)
   engine.stop()
 })
 

@@ -40,7 +40,7 @@ const K_VIEW = 'view'
 
 /**
  * Keeps the window's view state (preload's loadView/saveView) in the storage the engine keeps
- * hidden projects in, so the app has one place to save settings in (#7).
+ * hidden projects in: the settings file, so it survives a restart.
  */
 export function handleViewState(ipc: IpcMainLike, storage: EngineDeps['storage']): void {
   ipc.handle('view.load', async () => ((await storage.get(K_VIEW)) as ViewState | undefined) ?? EMPTY_VIEW)
