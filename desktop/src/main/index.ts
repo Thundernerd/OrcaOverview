@@ -38,6 +38,7 @@ const engine = createEngine({
   opener: cliOpener(orcaJson),
   // No focusedTerminals or focusedWorkspace: the CLI can't say which workspace Orca's window shows
   // (#14), so with paired servers this machine's active workspace stays the active one.
+  // Upstream request: https://github.com/stablyai/orca/issues/41184
   pollMs: POLL_MS,
   log: (message) => console.error(message),
   cli: { orcaJson, surveyTickets, surveyAvailable }
