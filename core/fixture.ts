@@ -1,6 +1,6 @@
-// Sample data for panel tests and `orca plugin check` scenarios.
-import { buildSnapshot, tagRemote, type PsWorktree } from '../core/model.ts'
-import type { Snapshot } from '../core/protocol.ts'
+// Sample data for the plugin's panel tests and `orca plugin check` scenarios, and the desktop window's tests.
+import { buildSnapshot, tagRemote, type PsWorktree } from './model.ts'
+import type { Snapshot } from './protocol.ts'
 
 export const NOW = 1_790_000_000_000
 
