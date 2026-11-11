@@ -132,7 +132,7 @@ test('a project that is merging shows it and does not start a second merge', asy
   assert.match(button.title, /already running/)
 })
 
-test('Needs you is a column beside the projects holding every item, with no Show all', async () => {
+test('Needs you is a complementary landmark holding every item, with no Show all', async () => {
   const snapshot = busySnapshot()
   const flagged = snapshot.attention.at(-1)!
   snapshot.attention = Array.from({ length: 8 }, (_, i) => ({ ...flagged, key: `k${i}`, workspaceName: `feat/gh-${i}` }))
@@ -143,8 +143,7 @@ test('Needs you is a column beside the projects holding every item, with no Show
     Array.from({ length: 8 }, (_, i) => `example-app · feat/gh-${i}`)
   )
   assert.equal(within(column).queryByRole('button', { name: /Show all|Show fewer/ }), null)
-  assert.ok(within(column).getByRole('heading', { name: 'Needs you' }))
-  assert.ok(within(column).getByLabelText('8 items'), 'its heading keeps the count')
+  assert.ok(within(column).getByRole('heading', { name: 'Needs you 8' }), 'its heading keeps the count')
 })
 
 /** The project card titled `name`. */
@@ -172,7 +171,7 @@ test('pins a project to the top and minimizes it to its header', async () => {
   assert.ok(within(atlas).getByText('2 need you'), 'badges stay visible when minimized')
 })
 
-test('lays the project cards out in a grid, pinned first', async () => {
+test('lists the project cards in their grid, pinned first', async () => {
   render(<App api={fakeApi()} />)
   const grid = await screen.findByRole('list', { name: 'Project cards' })
   const names = () => within(grid).getAllByRole('listitem').map((li) => within(li).getByRole('article').getAttribute('aria-label'))

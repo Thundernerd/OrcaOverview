@@ -445,12 +445,10 @@ export function App({ api }: { api: OverviewApi }) {
       {/* Needs you comes first, so a narrow window stacks it above the projects; a wide one puts it on the right. */}
       <div className="columns">
         <aside aria-labelledby="needs-you" className="needs-you">
-          <div className="row heading">
-            <h2 id="needs-you">Needs you</h2>
-            <span className="count" aria-label={`${snapshot.attention.length} items`}>
-              {snapshot.attention.length}
-            </span>
-          </div>
+          {/* The column is named "Needs you"; its heading also shows the count. */}
+          <h2>
+            <span id="needs-you">Needs you</span> <span className="count">{snapshot.attention.length}</span>
+          </h2>
           <div className="scroll">
             {snapshot.attention.length === 0 ? <p className="muted">Nothing is waiting on you.</p> : null}
             {snapshot.attention.map((item) => (
@@ -461,8 +459,9 @@ export function App({ api }: { api: OverviewApi }) {
         <section aria-labelledby="projects" className="projects">
           <h2 id="projects">Projects</h2>
           <div className="scroll">
-            {visible.length === 0 ? <p className="muted">Orca has no workspaces to show.</p> : null}
-            {visible.length > 0 ? (
+            {visible.length === 0 ? (
+              <p className="muted">Orca has no workspaces to show.</p>
+            ) : (
               <ul className="project-grid" aria-label="Project cards">
                 {visible.map((p) => (
                   <li key={p.id}>
@@ -470,7 +469,7 @@ export function App({ api }: { api: OverviewApi }) {
                   </li>
                 ))}
               </ul>
-            ) : null}
+            )}
             {hidden.length > 0 ? (
               <details aria-label={`Hidden projects (${hidden.length})`}>
                 <summary>Hidden projects ({hidden.length})</summary>
