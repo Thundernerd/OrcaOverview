@@ -72,7 +72,7 @@ npx -p typescript tsc -p core --noEmit  # core alone, without .orca/types
 
 - **Engine:** the main process runs the same engine as the plugin. Orca's events don't reach apps outside it, so it polls every 5 s.
 - **Requests:** the window asks the main process over IPC, with the plugin's request names (`overview.snapshot`, `overview.runSkill`, …).
-- **Menu bar:** click the count to show or hide the window. Right-click for Open, Refresh and Quit. Closing the window keeps the app running. It has no Dock icon.
+- **Menu bar:** the window opens when you start the app. Click the count to bring the window forward, or to hide it when it's already in front. Right-click for Open, Refresh and Quit. Closing the window keeps the app running. It has no Dock icon.
 - **Opening workspaces:** it uses `orca worktree activate` and `orca terminal switch`, since it can't use the plugin API.
 
 It needs Node and npm. Run these in `desktop/`:
