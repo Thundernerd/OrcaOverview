@@ -1,6 +1,6 @@
 // The desktop window: the same overview as the plugin's panel (src/panel.tsx), drawn with React.
 // All data comes from the main process through `api` (the preload's window.overview).
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import type { AttentionItem, AttentionKind, Project, RunResult, Skill, Snapshot } from '../../../core/protocol.ts'
 import { KIND, MERGING_TIP, prCell, visibleProjects } from '../../../core/present.ts'
 import type { OverviewApi } from '../preload/api.ts'
@@ -120,6 +120,7 @@ function AttentionCard({ item, project, actions, revealed }: {
   revealed?: number
 }) {
   const ref = useRef<HTMLElement>(null)
+  const headingId = useId()
   useEffect(() => {
     if (!revealed || !ref.current) return
     // jsdom has no scrollIntoView.
@@ -131,7 +132,7 @@ function AttentionCard({ item, project, actions, revealed }: {
   const remote = Boolean(project?.host)
   const tip = remote ? REMOTE_TIP : undefined
   return (
-    <article ref={ref} tabIndex={-1} className={`card attention ${KIND[item.kind].tone}${revealed ? ' revealed' : ''}`}>
+    <article ref={ref} tabIndex={-1} aria-labelledby={headingId} className={`card attention ${KIND[item.kind].tone}${revealed ? ' revealed' : ''}`}>
       {/* Kind and age on their own line, so a long workspace name can never push them out. */}
       <div className="row between">
         <div className="row">
@@ -148,7 +149,7 @@ function AttentionCard({ item, project, actions, revealed }: {
           </span>
         ) : null}
       </div>
-      <h3 title={`${item.projectName} · ${item.workspaceName}`}>
+      <h3 id={headingId} title={`${item.projectName} · ${item.workspaceName}`}>
         {item.projectName} · {item.workspaceName}
       </h3>
       {item.reasons.map((r) => (

@@ -407,3 +407,9 @@ test('a notification click that arrives before the first snapshot shows its card
   assert.ok(document.activeElement === target, `focus is on ${document.activeElement?.tagName}`)
   assert.ok(target.classList.contains('revealed'))
 })
+
+test('each Needs you card is named after its workspace, so focusing it says which one', async () => {
+  render(<App api={fakeApi()} />)
+  const column = await screen.findByRole('complementary', { name: 'Needs you' })
+  assert.ok(within(column).getByRole('article', { name: 'beacon · ci/gh-3-smoke-test' }))
+})
