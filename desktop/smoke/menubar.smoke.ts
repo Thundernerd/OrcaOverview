@@ -63,7 +63,8 @@ fi
 test('the built app shows the needs-you count in the menu bar', async () => {
   const exe = builtExecutable()
   const dir = mkdtempSync(join(tmpdir(), 'orca-overview-smoke-'))
-  const app = spawn(exe, [], { env: { ...process.env, ORCA_OVERVIEW_CLI: fakeOrca(dir) }, stdio: ['ignore', 'pipe', 'pipe'] })
+  // Its own user-data folder, so the single-instance lock there doesn't hand off to another copy.
+  const app = spawn(exe, [`--user-data-dir=${dir}`], { env: { ...process.env, ORCA_OVERVIEW_CLI: fakeOrca(dir) }, stdio: ['ignore', 'pipe', 'pipe'] })
   try {
     const title = await new Promise<string>((resolve, reject) => {
       let out = ''
@@ -81,7 +82,7 @@ test('the built app shows the needs-you count in the menu bar', async () => {
       app.stderr.on('data', read)
       app.on('exit', (code) => {
         clearTimeout(timer)
-        reject(new Error(`the app exited (${code}) before showing a count (is another copy running?); output:\n${out}`))
+        reject(new Error(`the app exited (${code}) before showing a count; output:\n${out}`))
       })
     })
     assert.equal(title, '2')
