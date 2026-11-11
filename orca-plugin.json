@@ -4,6 +4,8 @@
   "name": "Orca Overview",
   "version": "0.1.0",
   "description": "Every project and its ticket workspaces in one panel: what needs you first, and one-click /launch-tickets, /merge-tickets, /clean-workspaces and /write-ticket.",
+  "license": "MIT",
+  "repository": "https://github.com/Thundernerd/OrcaOverview",
   "engines": {
     "orca": ">=1.4.248"
   },
