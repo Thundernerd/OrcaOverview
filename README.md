@@ -72,7 +72,7 @@ npx -p typescript tsc -p core --noEmit  # core alone, without .orca/types
 
 - **Engine:** the main process runs the same engine as the plugin. Orca's events don't reach apps outside it, so it polls every 5 s.
 - **Requests:** the window asks the main process over IPC, with the plugin's request names (`overview.snapshot`, `overview.runSkill`, …).
-- **Menu bar:** click the count to show or hide the window. Right-click for Open, Refresh and Quit. Closing the window keeps the app running. It has no Dock icon.
+- **Menu bar:** the window opens when you start the app. Click the count to bring the window forward, or to hide it when it's already in front. Right-click for Open, Refresh and Quit. Closing the window keeps the app running. It has no Dock icon.
 - **Opening workspaces:** it uses `orca worktree activate` and `orca terminal switch`, since it can't use the plugin API.
 
 It needs Node and npm. Run these in `desktop/`:
@@ -87,7 +87,7 @@ npm run smoke       # launches the built app against a fake orca CLI
 npm run typecheck
 ```
 
-The build isn't signed. If macOS refuses to open it, right-click the app and choose Open. `ORCA_OVERVIEW_CLI=/path/to/orca` points the app at a different `orca` binary.
+The build is only ad-hoc signed. If macOS refuses to open it, right-click the app and choose Open. To read paired servers on your network, the app needs Local Network access. At launch it connects to each paired server once so macOS asks: allow it, or turn on Orca Overview later under System Settings → Privacy & Security → Local Network. The build gives the executable its own Mach-O UUID (`desktop/build/unique-uuid.cjs`); without that, macOS takes the app for the stock Electron and blocks it without asking. Without it those servers show "Could not connect to the remote Orca runtime". `ORCA_OVERVIEW_CLI=/path/to/orca` points the app at a different `orca` binary.
 
 Don't install the plugin from a checkout that has `desktop/node_modules` (`orca plugin install .`). Install it from GitHub or from a clean clone (see `docs/spikes/repo-layout.md`).
 
