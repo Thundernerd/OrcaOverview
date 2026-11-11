@@ -1,11 +1,11 @@
 // The overview's worker: polls Orca's workspaces, keeps ticket counts, answers the panel and
 // keeps the status bar item current. A save restarts it, so what must survive lives in storage.
 import type { OrcaWorkerApi } from 'orca/worker'
-import { markRead, openAgent, reply, runSkill, terminalsOf } from './actions.ts'
-import { orcaJson, surveyAvailable, surveyTickets } from './cli.ts'
-import { buildSnapshot, isMerging, keepOneActive, omittedHosts, tagRemote, type PsWorktree } from './model.ts'
-import type { Snapshot, TicketCounts } from './protocol.ts'
-import { failedSurvey, parseSurvey } from './survey.ts'
+import { markRead, openAgent, reply, runSkill, terminalsOf } from '../core/actions.ts'
+import { orcaJson, surveyAvailable, surveyTickets } from '../core/cli.ts'
+import { buildSnapshot, isMerging, keepOneActive, omittedHosts, tagRemote, type PsWorktree } from '../core/model.ts'
+import type { Snapshot, TicketCounts } from '../core/protocol.ts'
+import { failedSurvey, parseSurvey } from '../core/survey.ts'
 
 const POLL_MS = 15_000
 const TICKETS_MS = 5 * 60_000
