@@ -6,6 +6,7 @@ import { ORCA, orcaJsonAt, surveyAvailable, surveyTickets } from '../../../core/
 import { createEngine } from '../../../core/engine.ts'
 import type { Snapshot } from '../../../core/protocol.ts'
 import { handleRequests } from './ipc.ts'
+import { requestLocalNetworkAccess } from './localNetwork.ts'
 import { cliOpener } from './opener.ts'
 
 /** Orca's events don't reach apps outside it, so poll more often than the plugin's 15 s. */
@@ -115,6 +116,7 @@ function start(): void {
     if (win && !win.isDestroyed()) win.webContents.send('overview.snapshot', s)
   })
   engine.start()
+  void requestLocalNetworkAccess(orcaJson)
   // Show the window at launch, so opening the app visibly does something.
   showWindow()
 }
