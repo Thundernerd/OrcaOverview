@@ -87,7 +87,12 @@ test('the built app shows the needs-you count in the menu bar', async () => {
     })
     assert.equal(title, '2')
   } finally {
-    app.kill()
+    // Wait for the app to exit before removing its user-data folder: until then it still writes there.
+    if (app.exitCode === null && app.signalCode === null) {
+      const exited = new Promise((resolve) => app.once('exit', resolve))
+      app.kill()
+      await exited
+    }
     rmSync(dir, { recursive: true, force: true })
   }
 })
