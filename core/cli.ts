@@ -68,22 +68,27 @@ function parseReply<T>(text: string): OrcaReply<T> | null {
   }
 }
 
-/** Runs `orca <args> --json` and returns `result`, throwing Orca's error when `ok` is false. */
-export async function orcaJson<T>(args: string[], timeoutMs?: number): Promise<T> {
-  let out: string
-  try {
-    out = await run(ORCA, [...args, '--json'], { timeoutMs })
-  } catch (error) {
-    // Orca prints its JSON error on stdout with a non-zero exit.
-    const reply = error instanceof CliError ? parseReply<T>(error.stdout) : null
-    if (reply?.error) throw new OrcaError(reply.error.message ?? reply.error.code ?? 'orca failed', reply.error.code ?? null)
-    throw new OrcaError(error instanceof Error ? error.message : String(error), null)
+/** `orcaJson` for the `orca` CLI at `bin`; the desktop app's smoke test points it at a fake. */
+export function orcaJsonAt(bin: string) {
+  return async function orcaJson<T>(args: string[], timeoutMs?: number): Promise<T> {
+    let out: string
+    try {
+      out = await run(bin, [...args, '--json'], { timeoutMs })
+    } catch (error) {
+      // Orca prints its JSON error on stdout with a non-zero exit.
+      const reply = error instanceof CliError ? parseReply<T>(error.stdout) : null
+      if (reply?.error) throw new OrcaError(reply.error.message ?? reply.error.code ?? 'orca failed', reply.error.code ?? null)
+      throw new OrcaError(error instanceof Error ? error.message : String(error), null)
+    }
+    const parsed = parseReply<T>(out)
+    if (!parsed) throw new OrcaError(`orca ${args[0]} printed no JSON`, null)
+    if (!parsed.ok) throw new OrcaError(parsed.error?.message ?? parsed.error?.code ?? 'orca failed', parsed.error?.code ?? null)
+    return parsed.result as T
   }
-  const parsed = parseReply<T>(out)
-  if (!parsed) throw new OrcaError(`orca ${args[0]} printed no JSON`, null)
-  if (!parsed.ok) throw new OrcaError(parsed.error?.message ?? parsed.error?.code ?? 'orca failed', parsed.error?.code ?? null)
-  return parsed.result as T
 }
+
+/** Runs `orca <args> --json` and returns `result`, throwing Orca's error when `ok` is false. */
+export const orcaJson = orcaJsonAt(ORCA)
 
 export function surveyTickets(cwd: string): Promise<string> {
   return run('/bin/bash', [SURVEY], { cwd, timeoutMs: 90_000 })
