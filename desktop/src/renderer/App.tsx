@@ -429,19 +429,22 @@ export function App({ api }: { api: OverviewApi }) {
           </p>
         ) : null}
       </header>
-      {snapshot.warnings.map((w) => (
-        <div key={w} role="status" className="callout warning">
-          <strong>A paired server could not be read</strong>
-          <span>{w}</span>
-        </div>
-      ))}
-      {snapshot.error ? (
-        <div role="alert" className="callout danger">
-          <strong>Could not read Orca’s workspaces</strong>
-          <span>{snapshot.error}</span>
-        </div>
-      ) : null}
-      {callout}
+      {/* Grouped so that, in the wide layout, a pile of notices scrolls instead of squeezing both columns. */}
+      <div className="notices">
+        {snapshot.warnings.map((w) => (
+          <div key={w} role="status" className="callout warning">
+            <strong>A paired server could not be read</strong>
+            <span>{w}</span>
+          </div>
+        ))}
+        {snapshot.error ? (
+          <div role="alert" className="callout danger">
+            <strong>Could not read Orca’s workspaces</strong>
+            <span>{snapshot.error}</span>
+          </div>
+        ) : null}
+        {callout}
+      </div>
       {/* Needs you comes first, so a narrow window stacks it above the projects; a wide one puts it on the right. */}
       <div className="columns">
         <aside aria-labelledby="needs-you" className="needs-you">

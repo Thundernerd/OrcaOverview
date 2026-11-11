@@ -49,6 +49,8 @@ h2 > .count {
 }
 
 /* Narrow: one column, Needs you above the projects, and the whole window scrolls. */
+.notices { display: flex; flex-direction: column; gap: 8px; }
+.notices:empty { display: none; }
 .columns { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .project-grid {
   list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; align-items: start;
@@ -63,6 +65,7 @@ h2 > .count {
   html, body, #root { height: 100%; }
   main { height: 100%; padding-bottom: 12px; overflow: hidden; }
   main > * { flex: none; }
+  .notices { max-height: 30vh; overflow-y: auto; }
   main > .columns {
     flex: 1; min-height: 0; display: grid; gap: 14px;
     grid-template-columns: minmax(0, 1fr) 340px; grid-template-areas: 'projects needs';
