@@ -89,8 +89,8 @@ function showWindow(): void {
 }
 
 /**
- * Shows the window, and asks it to show `worktreeId`'s item once its page has loaded. The window
- * doesn't listen on `overview.reveal` yet (#23).
+ * Shows the window, and asks it to show `worktreeId`'s item once its page has loaded: the window
+ * scrolls to that card in Needs you, highlights it and focuses it.
  */
 function revealInWindow(worktreeId: string | null): void {
   showWindow()

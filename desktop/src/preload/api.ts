@@ -22,6 +22,8 @@ export interface OverviewApi {
   ): Promise<OverviewRequests[K]['output']>
   /** Hears every new snapshot; returns a function that stops listening. */
   onSnapshot(listener: (s: Snapshot) => void): () => void
+  /** Hears each notification click that names a workspace; returns a function that stops listening. */
+  onReveal(listener: (worktreeId: string) => void): () => void
   /** The window's pin, minimize and expand state. */
   loadView(): Promise<ViewState>
   saveView(state: ViewState): Promise<void>

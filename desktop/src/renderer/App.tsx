@@ -1,6 +1,6 @@
 // The desktop window: the same overview as the plugin's panel (src/panel.tsx), drawn with React.
 // All data comes from the main process through `api` (the preload's window.overview).
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import type { AttentionItem, AttentionKind, Project, RunResult, Skill, Snapshot } from '../../../core/protocol.ts'
 import { KIND, MERGING_TIP, prCell, visibleProjects } from '../../../core/present.ts'
 import type { OverviewApi } from '../preload/api.ts'
@@ -106,13 +106,45 @@ function Button({ children, disabled, title, label, onClick, variant = 'outline'
   )
 }
 
-function AttentionCard({ item, project, actions }: { item: AttentionItem; project: Project | undefined; actions: Actions }) {
+/** A notification click that asked to show a workspace's card. `n` counts clicks, so clicking the same one again shows it again. */
+type Reveal = { worktreeId: string; n: number }
+
+/** How long a revealed card stays highlighted: the length of the `reveal` animation in styles.css. */
+const REVEAL_MS = 2_000
+
+function AttentionCard({ item, project, actions, revealed }: {
+  item: AttentionItem
+  project: Project | undefined
+  actions: Actions
+  /** Set (to the click's `n`) while a notification click shows this card. */
+  revealed?: number
+}) {
+  const ref = useRef<HTMLElement>(null)
+  const headingId = useId()
+  useEffect(() => {
+    const el = ref.current
+    if (!revealed || !el) return
+    // A second click while the card is still highlighted keeps its class, so play the fade again.
+    // jsdom has neither getAnimations nor scrollIntoView.
+    for (const a of el.getAnimations?.() ?? []) {
+      a.currentTime = 0
+      a.play()
+    }
+    el.scrollIntoView?.({ block: 'nearest' })
+    el.focus({ preventScroll: true })
+  }, [revealed])
   const replying = actions.editing === `reply:${item.key}`
   const has = (k: AttentionKind) => item.kinds.includes(k)
   const remote = Boolean(project?.host)
   const tip = remote ? REMOTE_TIP : undefined
   return (
-    <article className={`card attention ${KIND[item.kind].tone}`}>
+    <article
+      ref={ref}
+      tabIndex={-1}
+      aria-labelledby={headingId}
+      className={`card attention ${KIND[item.kind].tone}${revealed ? ' revealed' : ''}`}
+      style={revealed ? { animationDuration: `${REVEAL_MS}ms` } : undefined}
+    >
       {/* Kind and age on their own line, so a long workspace name can never push them out. */}
       <div className="row between">
         <div className="row">
@@ -129,7 +161,7 @@ function AttentionCard({ item, project, actions }: { item: AttentionItem; projec
           </span>
         ) : null}
       </div>
-      <h3 title={`${item.projectName} · ${item.workspaceName}`}>
+      <h3 id={headingId} title={`${item.projectName} · ${item.workspaceName}`}>
         {item.projectName} · {item.workspaceName}
       </h3>
       {item.reasons.map((r) => (
@@ -345,6 +377,22 @@ export function App({ api }: { api: OverviewApi }) {
   const running = useRef(false)
   const [editing, setEditing] = useState<string | null>(null)
   const view = useView(api)
+  // A notification click waits in `asked` for a snapshot, then shows its card while `shown` is set.
+  const clicks = useRef(0)
+  const [asked, setAsked] = useState<Reveal | null>(null)
+  const [shown, setShown] = useState<Reveal | null>(null)
+  useEffect(() => api.onReveal((worktreeId) => setAsked({ worktreeId, n: ++clicks.current })), [api])
+  useEffect(() => {
+    if (!asked || !snapshot) return
+    // A workspace that no longer needs you (marked read in between) leaves the window as it is.
+    if (snapshot.attention.some((a) => a.worktreeId === asked.worktreeId)) setShown(asked)
+    setAsked(null)
+  }, [asked, snapshot])
+  useEffect(() => {
+    if (!shown) return
+    const timer = setTimeout(() => setShown(null), REVEAL_MS)
+    return () => clearTimeout(timer)
+  }, [shown])
   useEffect(() => {
     api
       .request('overview.snapshot')
@@ -455,7 +503,13 @@ export function App({ api }: { api: OverviewApi }) {
           <div className="scroll">
             {snapshot.attention.length === 0 ? <p className="muted">Nothing is waiting on you.</p> : null}
             {snapshot.attention.map((item) => (
-              <AttentionCard key={item.key} item={item} project={byId.get(item.projectId)} actions={actions} />
+              <AttentionCard
+                key={item.key}
+                item={item}
+                project={byId.get(item.projectId)}
+                actions={actions}
+                revealed={shown?.worktreeId === item.worktreeId ? shown.n : undefined}
+              />
             ))}
           </div>
         </aside>
