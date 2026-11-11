@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import type { Snapshot } from '../../../core/protocol.ts'
-import { handleRequests, type RequestEngine } from './ipc.ts'
+import { handleRequests, handleViewState, type RequestEngine } from './ipc.ts'
 
 const snapshot: Snapshot = { projects: [], attention: [], updatedAt: 1, error: null, warnings: [] }
 
@@ -76,4 +76,15 @@ test('every other operation passes its input to the engine and returns its answe
     assert.deepEqual(await invoke(c.channel, c.input), c.answer, c.channel)
     assert.deepEqual(calls, [c.call], c.channel)
   }
+})
+
+test('the window saves its view state in the storage it shares with the engine', async () => {
+  const values = new Map<string, unknown>()
+  const storage = { get: async (key: string) => values.get(key), set: async (key: string, value: unknown) => void values.set(key, value) }
+  const { ipc, invoke } = fakeIpc()
+  handleViewState(ipc, storage)
+  assert.deepEqual(await invoke('view.load'), { pinned: {}, minimized: {}, expanded: {} }, 'nothing saved yet')
+  const state = { pinned: { 'atlas-id': true }, minimized: {}, expanded: { 'beacon-id': false } }
+  await invoke('view.save', state)
+  assert.deepEqual(await invoke('view.load'), state)
 })

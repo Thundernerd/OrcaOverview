@@ -1,7 +1,8 @@
 // Answers the window's requests in the main process, with the plugin's operation names
 // (OverviewRequests in core/protocol.ts), by passing each one to the engine.
-import type { Engine } from '../../../core/engine.ts'
+import type { Engine, EngineDeps } from '../../../core/engine.ts'
 import type { OverviewRequests, RequestInput } from '../../../core/protocol.ts'
+import { EMPTY_VIEW, type ViewState } from '../preload/api.ts'
 
 /** The engine calls the window can reach; tests pass a fake. */
 export type RequestEngine = Pick<Engine, 'snapshot' | 'refresh' | 'refreshTickets' | 'runSkill' | 'open' | 'reply' | 'markRead' | 'setHidden'>
@@ -32,4 +33,16 @@ export function handleRequests(ipc: IpcMainLike, engine: RequestEngine): void {
   for (const [channel, handler] of Object.entries(handlers) as [string, (input: unknown) => unknown][]) {
     ipc.handle(channel, (_event, input) => handler(input))
   }
+}
+
+/** The storage key of the window's pin, minimize and expand state. */
+const K_VIEW = 'view'
+
+/**
+ * Keeps the window's view state (preload's loadView/saveView) in the storage the engine keeps
+ * hidden projects in, so the app has one place to save settings in (#7).
+ */
+export function handleViewState(ipc: IpcMainLike, storage: EngineDeps['storage']): void {
+  ipc.handle('view.load', async () => ((await storage.get(K_VIEW)) as ViewState | undefined) ?? EMPTY_VIEW)
+  ipc.handle('view.save', (_event, state: ViewState) => storage.set(K_VIEW, state))
 }

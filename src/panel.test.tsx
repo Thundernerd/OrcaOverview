@@ -1,5 +1,5 @@
 import { assert, mockHost, mount, test } from 'orca/testing'
-import { busySnapshot, quietSnapshot } from './fixture.ts'
+import { busySnapshot, quietSnapshot } from '../core/fixture.ts'
 import * as panel from './panel.tsx'
 
 function host(snapshot = busySnapshot(), calls: { name: string; input: unknown }[] = []) {
