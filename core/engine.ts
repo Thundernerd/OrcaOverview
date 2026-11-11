@@ -45,6 +45,8 @@ export interface EngineDeps {
 
 export type Engine = ReturnType<typeof createEngine>
 
+const messageOf = (error: unknown): string => (error instanceof Error ? error.message : String(error))
+
 const realCli: EngineCli = { orcaJson, surveyTickets, surveyAvailable }
 
 export function createEngine(deps: EngineDeps) {
@@ -80,10 +82,12 @@ export function createEngine(deps: EngineDeps) {
     if (n) notified = new Set(n)
   })()
 
+  const projectOf = (projectId: string) => snapshot?.projects.find((p) => p.id === projectId)
+
   /** Drops clicks Orca now reports as a running merge, and ones that never showed up. */
   function livePendingMerges(now: number): Set<string> {
     for (const [projectId, startedAt] of pendingMerges) {
-      const mainId = snapshot?.projects.find((p) => p.id === projectId)?.mainWorktreeId
+      const mainId = projectOf(projectId)?.mainWorktreeId
       const main = mainId ? (worktrees.find((w) => w.worktreeId === mainId) ?? null) : null
       if (now - startedAt > PENDING_MERGE_MS || isMerging(main)) pendingMerges.delete(projectId)
     }
@@ -133,11 +137,11 @@ export function createEngine(deps: EngineDeps) {
         worktrees = await readAllHosts()
         lastError = null
       } catch (error) {
-        lastError = error instanceof Error ? error.message : String(error)
+        lastError = messageOf(error)
         log(`worktree ps failed: ${lastError}`)
       }
       const s = rebuild()
-      if (!lastError) await notifyNew(s).catch((e) => log(`notify failed: ${String(e)}`))
+      if (!lastError) await notifyNew(s).catch((e) => log(`notify failed: ${messageOf(e)}`))
       scheduleStaleSurveys(s)
       return s
     })().finally(() => {
@@ -157,7 +161,7 @@ export function createEngine(deps: EngineDeps) {
           const r = await cli.orcaJson<Ps>(['worktree', 'ps', '--environment', env], REMOTE_TIMEOUT_MS)
           return tagRemote(env, r.worktrees ?? [])
         } catch (error) {
-          const message = error instanceof Error ? error.message : String(error)
+          const message = messageOf(error)
           nextWarnings.push(`${env}: ${message}`)
           return []
         }
@@ -226,12 +230,12 @@ export function createEngine(deps: EngineDeps) {
   }
 
   async function runSurvey(projectId: string): Promise<void> {
-    const project = snapshot?.projects.find((p) => p.id === projectId)
+    const project = projectOf(projectId)
     if (!project?.mainPath) return
     try {
       tickets[projectId] = parseSurvey(await cli.surveyTickets(project.mainPath), Date.now())
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
+      const message = messageOf(error)
       log(`survey ${project.name} failed: ${message}`)
       tickets[projectId] = failedSurvey(message, Date.now(), tickets[projectId] ?? null)
     }
@@ -245,7 +249,7 @@ export function createEngine(deps: EngineDeps) {
   }
 
   function mainOf(projectId: string): PsWorktree {
-    const id = snapshot?.projects.find((p) => p.id === projectId)?.mainWorktreeId
+    const id = projectOf(projectId)?.mainWorktreeId
     if (!id) throw new Error('This project has no main workspace in Orca.')
     return worktree(id)
   }
@@ -282,7 +286,7 @@ export function createEngine(deps: EngineDeps) {
     },
     async refreshTickets(projectId: string): Promise<Snapshot> {
       if (!snapshot) await refresh()
-      const project = snapshot?.projects.find((p) => p.id === projectId)
+      const project = projectOf(projectId)
       // A remote project counts with its local checkout; survey.sh runs on this machine.
       if (!project?.ticketSource) throw new Error('Ticket counts need a local checkout of this repo in Orca.')
       enqueueSurvey(project.ticketSource)
