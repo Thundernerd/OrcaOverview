@@ -71,6 +71,8 @@ export function createEngine(deps: EngineDeps) {
   let refreshing: Promise<Snapshot> | null = null
   let debounce: ReturnType<typeof setTimeout> | null = null
   let timer: ReturnType<typeof setInterval> | null = null
+  /** Set by stop(): events and actions still in flight then must not schedule a refresh. */
+  let stopped = false
 
   const strings = (v: unknown): string[] | null => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : null)
   const loaded = (async () => {
@@ -256,6 +258,7 @@ export function createEngine(deps: EngineDeps) {
 
   /** Refreshes shortly, once for a burst of calls (e.g. Orca events). */
   function refreshSoon(): void {
+    if (stopped) return
     if (debounce) clearTimeout(debounce)
     debounce = setTimeout(() => {
       debounce = null
@@ -275,10 +278,12 @@ export function createEngine(deps: EngineDeps) {
     /** Starts polling every `pollMs`, with a refresh right away. */
     start(): void {
       if (timer) return
+      stopped = false
       timer = setInterval(() => void refresh(), deps.pollMs)
       void refresh()
     },
     stop(): void {
+      stopped = true
       if (timer) clearInterval(timer)
       timer = null
       if (debounce) clearTimeout(debounce)

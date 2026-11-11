@@ -135,3 +135,12 @@ test('stale surveys run at most two at a time, and the next starts when one ends
   assert.deepEqual(cli.surveys, ['/ws/atlas/main', '/ws/beacon/main', '/ws/comet/main'])
   engine.stop()
 })
+
+test('a stopped engine does not refresh on a later refreshSoon', async () => {
+  const { cli, engineCli } = fakeCli([main('atlas')])
+  const engine = createEngine(fakeDeps(engineCli).deps)
+  engine.stop()
+  engine.refreshSoon()
+  await new Promise((resolve) => setTimeout(resolve, 700))
+  assert.deepEqual(cli.calls, [])
+})
