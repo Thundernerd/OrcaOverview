@@ -144,3 +144,12 @@ test('a stopped engine does not refresh on a later refreshSoon', async () => {
   await new Promise((resolve) => setTimeout(resolve, 700))
   assert.deepEqual(cli.calls, [])
 })
+
+test('projects show their ticket counts loading as soon as a refresh queues their survey', async () => {
+  const { cli, engineCli } = fakeCli([main('atlas'), wt('atlas', 'feat-gh-1-a', { linkedIssue: 1 })])
+  cli.surveyAvailable = true
+  const engine = createEngine(fakeDeps(engineCli).deps)
+  await engine.refresh()
+  assert.equal(engine.snapshot()?.projects[0].ticketsLoading, true)
+  engine.stop()
+})

@@ -144,8 +144,8 @@ export function createEngine(deps: EngineDeps) {
       }
       const s = rebuild()
       if (!lastError) await notifyNew(s).catch((e) => log(`notify failed: ${messageOf(e)}`))
-      scheduleStaleSurveys(s)
-      return s
+      // Show the queued surveys as loading now, not only when the first one ends.
+      return scheduleStaleSurveys(s) ? rebuild() : s
     })().finally(() => {
       refreshing = null
     })
@@ -200,22 +200,27 @@ export function createEngine(deps: EngineDeps) {
   }
 
   // Ticket counts: survey.sh per project, at most two at a time, results kept in storage.
-  function scheduleStaleSurveys(s: Snapshot): void {
-    if (!cli.surveyAvailable()) return
+  /** Queues the surveys that are due; true when it queued any. */
+  function scheduleStaleSurveys(s: Snapshot): boolean {
+    if (!cli.surveyAvailable()) return false
     const now = Date.now()
+    let queued = false
     for (const p of s.projects) {
       // A remote project is counted through its local checkout (its ticketSource).
       if (p.hidden || !p.usesTickets || !p.ticketSource) continue
       const fetchedAt = tickets[p.ticketSource]?.fetchedAt ?? 0
-      if (now - fetchedAt >= TICKETS_MS) enqueueSurvey(p.ticketSource)
+      if (now - fetchedAt >= TICKETS_MS && enqueueSurvey(p.ticketSource)) queued = true
     }
+    return queued
   }
 
-  function enqueueSurvey(projectId: string): void {
-    if (ticketsLoading.has(projectId)) return
+  /** Queues a survey unless one is queued or running; true when it queued it. */
+  function enqueueSurvey(projectId: string): boolean {
+    if (ticketsLoading.has(projectId)) return false
     ticketsLoading.add(projectId)
     surveyQueue.push(projectId)
     pumpSurveys()
+    return true
   }
 
   function pumpSurveys(): void {
