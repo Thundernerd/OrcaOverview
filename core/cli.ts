@@ -21,6 +21,8 @@ const PATH = [
   .filter(Boolean)
   .join(':')
 
+// Error fields are plain fields, not constructor parameter properties: Node's type stripping
+// can't run those, and `node --test` runs core's tests without a compile step.
 export class CliError extends Error {
   readonly stderr: string
   readonly stdout: string
