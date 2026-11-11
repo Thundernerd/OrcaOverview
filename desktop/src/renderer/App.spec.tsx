@@ -172,6 +172,15 @@ test('pins a project to the top and minimizes it to its header', async () => {
   assert.ok(within(atlas).getByText('2 need you'), 'badges stay visible when minimized')
 })
 
+test('lays the project cards out in a grid, pinned first', async () => {
+  render(<App api={fakeApi()} />)
+  const grid = await screen.findByRole('list', { name: 'Project cards' })
+  const names = () => within(grid).getAllByRole('listitem').map((li) => within(li).getByRole('article').getAttribute('aria-label'))
+  assert.deepEqual(names(), ['atlas', 'beacon', 'example-app', 'Quiet'])
+  fireEvent.click(within(grid).getByRole('button', { name: 'Pin beacon' }))
+  await waitFor(() => assert.deepEqual(names(), ['beacon', 'atlas', 'example-app', 'Quiet']))
+})
+
 test('runs a skill in the project and shows the result', async () => {
   const calls: Call[] = []
   render(<App api={fakeApi(busySnapshot(), calls)} />)

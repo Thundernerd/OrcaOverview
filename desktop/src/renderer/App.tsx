@@ -442,43 +442,54 @@ export function App({ api }: { api: OverviewApi }) {
         </div>
       ) : null}
       {callout}
-      <aside aria-labelledby="needs-you" className="needs-you">
-        <div className="row heading">
-          <h2 id="needs-you">Needs you</h2>
-          <span className="count" aria-label={`${snapshot.attention.length} items`}>
-            {snapshot.attention.length}
-          </span>
-        </div>
-        <div className="scroll">
-          {snapshot.attention.length === 0 ? <p className="muted">Nothing is waiting on you.</p> : null}
-          {snapshot.attention.map((item) => (
-            <AttentionCard key={item.key} item={item} project={byId.get(item.projectId)} actions={actions} />
-          ))}
-        </div>
-      </aside>
-      <section aria-labelledby="projects">
-        <h2 id="projects">Projects</h2>
-        {visible.length === 0 ? <p className="muted">Orca has no workspaces to show.</p> : null}
-        {visible.map((p) => (
-          <ProjectCard key={p.id} p={p} view={view} actions={actions} />
-        ))}
-        {hidden.length > 0 ? (
-          <details aria-label={`Hidden projects (${hidden.length})`}>
-            <summary>Hidden projects ({hidden.length})</summary>
-            {hidden.map((p) => (
-              <div key={p.id} className="row between">
-                <span>
-                  {p.name}
-                  {p.attentionCount ? ` · ${p.attentionCount} flagged` : ''}
-                </span>
-                <Button variant="ghost" label={`Show ${p.name}`} onClick={() => actions.setHidden(p.id, false)}>
-                  Show
-                </Button>
-              </div>
+      {/* Needs you comes first, so a narrow window stacks it above the projects; a wide one puts it on the right. */}
+      <div className="columns">
+        <aside aria-labelledby="needs-you" className="needs-you">
+          <div className="row heading">
+            <h2 id="needs-you">Needs you</h2>
+            <span className="count" aria-label={`${snapshot.attention.length} items`}>
+              {snapshot.attention.length}
+            </span>
+          </div>
+          <div className="scroll">
+            {snapshot.attention.length === 0 ? <p className="muted">Nothing is waiting on you.</p> : null}
+            {snapshot.attention.map((item) => (
+              <AttentionCard key={item.key} item={item} project={byId.get(item.projectId)} actions={actions} />
             ))}
-          </details>
-        ) : null}
-      </section>
+          </div>
+        </aside>
+        <section aria-labelledby="projects" className="projects">
+          <h2 id="projects">Projects</h2>
+          <div className="scroll">
+            {visible.length === 0 ? <p className="muted">Orca has no workspaces to show.</p> : null}
+            {visible.length > 0 ? (
+              <ul className="project-grid" aria-label="Project cards">
+                {visible.map((p) => (
+                  <li key={p.id}>
+                    <ProjectCard p={p} view={view} actions={actions} />
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            {hidden.length > 0 ? (
+              <details aria-label={`Hidden projects (${hidden.length})`}>
+                <summary>Hidden projects ({hidden.length})</summary>
+                {hidden.map((p) => (
+                  <div key={p.id} className="row between">
+                    <span>
+                      {p.name}
+                      {p.attentionCount ? ` · ${p.attentionCount} flagged` : ''}
+                    </span>
+                    <Button variant="ghost" label={`Show ${p.name}`} onClick={() => actions.setHidden(p.id, false)}>
+                      Show
+                    </Button>
+                  </div>
+                ))}
+              </details>
+            ) : null}
+          </div>
+        </section>
+      </div>
     </main>
   )
 }
