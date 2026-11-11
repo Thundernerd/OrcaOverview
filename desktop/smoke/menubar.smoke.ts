@@ -91,8 +91,12 @@ test('the built app shows the needs-you count in the menu bar', async () => {
     if (app.exitCode === null && app.signalCode === null) {
       const exited = new Promise((resolve) => app.once('exit', resolve))
       app.kill()
+      // If it doesn't quit on SIGTERM, don't hang the test: force it.
+      const force = setTimeout(() => app.kill('SIGKILL'), 5_000)
       await exited
+      clearTimeout(force)
     }
-    rmSync(dir, { recursive: true, force: true })
+    // Its helper processes can outlive it by a moment, still writing to the folder.
+    rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
   }
 })
