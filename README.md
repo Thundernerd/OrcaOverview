@@ -54,6 +54,7 @@ Shows "N need you". Clicking it opens the oldest item that needs you. You also g
 
 ```sh
 ORCA=/Applications/Orca.app/Contents/Resources/bin/orca
+$ORCA plugin types .          # writes the typings tsconfig.json extends (once per checkout)
 $ORCA plugin test .           # unit and panel tests
 $ORCA plugin check . --json   # renders the src/panel.check.ts scenarios
 $ORCA plugin dev reload .     # load into Orca (asks for approval the first time)
