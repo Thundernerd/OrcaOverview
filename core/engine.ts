@@ -257,7 +257,8 @@ export function createEngine(deps: EngineDeps) {
       log(`survey ${project.name} failed: ${message}`)
       tickets[projectId] = failedSurvey(message, Date.now(), tickets[projectId] ?? null)
     }
-    await deps.storage.set(K_TICKETS, tickets)
+    // The counts still show when they can't be saved; they're only missing after a restart.
+    await deps.storage.set(K_TICKETS, tickets).catch((e) => log(`saving ticket counts failed: ${messageOf(e)}`))
   }
 
   function worktree(worktreeId: string): PsWorktree {

@@ -152,6 +152,26 @@ test('stale surveys run at most two at a time, and the next starts when one ends
   engine.stop()
 })
 
+test('a survey whose counts cannot be saved still shows them, and logs why', async () => {
+  const { cli, engineCli } = fakeCli([main('atlas'), wt('atlas', 'feat-gh-1-a', { linkedIssue: 1 })])
+  cli.surveyAvailable = true
+  const logs: string[] = []
+  const { deps } = fakeDeps(engineCli, { log: (m) => void logs.push(m) })
+  deps.storage.set = async () => {
+    throw new Error('disk full')
+  }
+  const engine = createEngine(deps)
+  await engine.refresh()
+  cli.finishSurveys[0]()
+  await settle()
+  await settle()
+  const project = engine.snapshot()?.projects[0]
+  assert.equal(project?.ticketsLoading, false)
+  assert.ok(project?.tickets, 'the counts show')
+  assert.ok(logs.some((m) => m.includes('ticket counts') && m.includes('disk full')), `logged: ${logs.join('; ')}`)
+  engine.stop()
+})
+
 test('a stopped engine does not refresh on a later refreshSoon', async () => {
   const { cli, engineCli } = fakeCli([main('atlas')])
   const engine = createEngine(fakeDeps(engineCli).deps)
