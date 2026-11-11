@@ -23,6 +23,7 @@ import {
   type TableRow,
   type Tone
 } from 'orca'
+import { ATTENTION_LIMIT, KIND, MERGING_TIP, prCell, visibleProjects } from '../core/present.ts'
 import type { AttentionItem, AttentionKind, Project, Skill, Snapshot, WorkspaceRow } from '../core/protocol.ts'
 
 const snapshot = atom<Snapshot | null>(null)
@@ -32,7 +33,6 @@ const replyTo = atom<string | null>(null)
 const writeFor = atom<string | null>(null)
 const draft = atom('draft', '')
 const showAll = atom('showAll', false)
-const ATTENTION_LIMIT = 6
 /** Workspace tables the person opened or closed, by project id. */
 const expanded = atom<Record<string, boolean>>('expanded', {}, { persist: 'plugin' })
 /** Project cards folded down to their header, by project id. */
@@ -45,14 +45,6 @@ const toggle = (a: typeof minimized, id: string) => update(a, (m) => ({ ...m, [i
 /** Orca 1.4.253 cannot show a paired server's workspace on this Mac from a plugin (see actions.ts). */
 const REMOTE_TIP = 'Orca cannot open a paired server’s workspace from a plugin yet. Use the sidebar.'
 
-const MERGING_TIP = '/merge-tickets is already running in this project’s main workspace.'
-
-const KIND: Record<AttentionKind, { label: string; tone: Tone }> = {
-  'agent-waiting': { label: 'Agent waiting', tone: 'danger' },
-  flagged: { label: 'Flagged', tone: 'warning' },
-  'ci-failing': { label: 'CI failing', tone: 'danger' },
-  'pr-ready': { label: 'Ready to merge', tone: 'success' }
-}
 
 export function setup(ctx: PanelContext): void {
   ctx.subscriptions.push(plugin.on('overview.snapshot', (s) => set(snapshot, s)))
@@ -187,12 +179,6 @@ function AttentionCard({ item, project }: { item: AttentionItem; project: Projec
 function agentCell(w: WorkspaceRow): string {
   if (!w.agentState) return '-'
   return w.agentState
-}
-
-function prCell(w: WorkspaceRow): string {
-  if (!w.pr) return w.issue ? `#${w.issue}` : '-'
-  const checks = w.pr.checks === 'success' ? '✓' : w.pr.checks === 'failure' ? '✗' : w.pr.checks === 'pending' ? '…' : ''
-  return `PR ${w.pr.number} ${w.pr.state}${checks ? ` ${checks}` : ''}`
 }
 
 function workspaceRows(p: Project): TableRow[] {
@@ -356,13 +342,7 @@ export default function Panel() {
       </Stack>
     )
   }
-  const pins = read(pinned)
-  // Pinned projects first; otherwise keep the worker's order (attention, then recent activity).
-  const visible = s.projects
-    .filter((p) => !p.hidden)
-    .map((p, i) => ({ p, i }))
-    .sort((a, b) => Number(pins[b.p.id] === true) - Number(pins[a.p.id] === true) || a.i - b.i)
-    .map(({ p }) => p)
+  const visible = visibleProjects(s.projects, read(pinned))
   const hidden = s.projects.filter((p) => p.hidden)
   const byId = new Map(s.projects.map((p) => [p.id, p]))
   const activeProject = s.projects.find((p) => p.isActive) ?? null

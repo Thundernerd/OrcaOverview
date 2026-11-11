@@ -1,29 +1,18 @@
 // The desktop window: the same overview as the plugin's panel (src/panel.tsx), drawn with React.
 // All data comes from the main process through `api` (the preload's window.overview).
 import { useEffect, useRef, useState } from 'react'
-import type { AttentionItem, AttentionKind, Project, RunResult, Skill, Snapshot, WorkspaceRow } from '../../../core/protocol.ts'
+import type { AttentionItem, AttentionKind, Project, RunResult, Skill, Snapshot } from '../../../core/protocol.ts'
+import { ATTENTION_LIMIT, KIND, MERGING_TIP, prCell, visibleProjects } from '../../../core/present.ts'
 import type { OverviewApi } from '../preload/api.ts'
 import { useView, type View } from './view.ts'
 
 type Tone = 'danger' | 'warning' | 'success' | 'accent' | 'neutral'
-
-const KIND: Record<AttentionKind, { label: string; tone: Tone }> = {
-  'agent-waiting': { label: 'Agent waiting', tone: 'danger' },
-  flagged: { label: 'Flagged', tone: 'warning' },
-  'ci-failing': { label: 'CI failing', tone: 'danger' },
-  'pr-ready': { label: 'Ready to merge', tone: 'success' }
-}
 
 function Badge({ tone, children }: { tone: Tone; children: React.ReactNode }) {
   return <span className={`badge ${tone}`}>{children}</span>
 }
 
 /** The same limit as the panel: Orca cannot show a paired server's workspace from outside it. */
-/** Needs you cards shown before "Show all". */
-const ATTENTION_LIMIT = 6
-
-const MERGING_TIP = '/merge-tickets is already running in this project’s main workspace.'
-
 const REMOTE_TIP = 'Orca cannot open a paired server’s workspace from here yet. Use the sidebar.'
 
 /** What the cards can do; each runs one request at a time through `act`. */
@@ -182,12 +171,6 @@ function AttentionCard({ item, project, actions }: { item: AttentionItem; projec
       ) : null}
     </article>
   )
-}
-
-function prCell(w: WorkspaceRow): string {
-  if (!w.pr) return w.issue ? `#${w.issue}` : '-'
-  const checks = w.pr.checks === 'success' ? '✓' : w.pr.checks === 'failure' ? '✗' : w.pr.checks === 'pending' ? '…' : ''
-  return `PR ${w.pr.number} ${w.pr.state}${checks ? ` ${checks}` : ''}`
 }
 
 function WorkspaceTable({ p, actions }: { p: Project; actions: Actions }) {
@@ -383,13 +366,7 @@ export function App({ api }: { api: OverviewApi }) {
 
   if (!snapshot) return <p className="muted">Reading your workspaces…</p>
   const byId = new Map(snapshot.projects.map((p) => [p.id, p]))
-  const pins = view.state.pinned
-  // Pinned projects first; otherwise keep the engine's order (attention, then recent activity).
-  const visible = snapshot.projects
-    .filter((p) => !p.hidden)
-    .map((p, i) => ({ p, i }))
-    .sort((a, b) => Number(pins[b.p.id] === true) - Number(pins[a.p.id] === true) || a.i - b.i)
-    .map(({ p }) => p)
+  const visible = visibleProjects(snapshot.projects, view.state.pinned)
   const hidden = snapshot.projects.filter((p) => p.hidden)
   const activeProject = snapshot.projects.find((p) => p.isActive) ?? null
   return (
