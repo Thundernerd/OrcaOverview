@@ -10,6 +10,7 @@ import { requestLocalNetworkAccess } from './localNetwork.ts'
 import { desktopNotifier } from './notify.ts'
 import { cliOpener } from './opener.ts'
 import { fileStorage } from './storage.ts'
+import { appWindow } from './window.ts'
 
 /** Orca's events don't reach apps outside it, so poll more often than the plugin's 15 s. */
 const POLL_MS = 5_000
@@ -18,7 +19,6 @@ const POLL_MS = 5_000
 const orcaJson = orcaJsonAt(process.env.ORCA_OVERVIEW_CLI || ORCA)
 
 let tray: Tray | null = null
-let win: BrowserWindow | null = null
 let quitting = false
 
 /**
@@ -29,7 +29,7 @@ const storage = fileStorage(join(app.getPath('userData'), 'settings.json'))
 
 const notify = desktopNotifier({
   create: (options) => new Notification(options),
-  reveal: revealInWindow
+  reveal: (worktreeId) => mainWindow.reveal(worktreeId)
 })
 
 const engine = createEngine({
@@ -69,43 +69,20 @@ function createWindow(): BrowserWindow {
     title: 'Orca Overview',
     webPreferences: { preload: join(import.meta.dirname, '../preload/index.cjs'), sandbox: true }
   })
-  // Closing hides the window; the app keeps running in the menu bar until Quit.
-  w.on('close', (event) => {
-    if (quitting) return
-    event.preventDefault()
-    w.hide()
-  })
   if (process.env.ELECTRON_RENDERER_URL) void w.loadURL(process.env.ELECTRON_RENDERER_URL)
   else void w.loadFile(join(import.meta.dirname, '../renderer/index.html'))
   return w
 }
 
-function showWindow(): void {
-  win ??= createWindow()
-  win.show()
-  // Without a Dock icon the app doesn't come forward on its own; bring it in front of Orca.
-  app.focus({ steal: true })
-  win.focus()
-}
-
-/**
- * Shows the window, and asks it to show `worktreeId`'s item once its page has loaded: the window
- * scrolls to that card in Needs you, highlights it and focuses it.
- */
-function revealInWindow(worktreeId: string | null): void {
-  showWindow()
-  if (!worktreeId || !win) return
-  const contents = win.webContents
-  const send = () => contents.send('overview.reveal', worktreeId)
-  if (contents.isLoading()) contents.once('did-finish-load', send)
-  else send()
-}
-
-/** Hides the window when it's in front; otherwise shows it, also when it's behind other windows. */
-function toggleWindow(): void {
-  if (win?.isVisible() && win.isFocused()) win.hide()
-  else showWindow()
-}
+/** The window, and the Dock icon (with the Cmd-Tab entry) while it's open. */
+const mainWindow = appWindow({
+  create: createWindow,
+  dock: app.dock,
+  // A menu bar or notification click doesn't activate the app; without this the window would
+  // open behind the app the user is in.
+  focusApp: () => app.focus({ steal: true }),
+  quitting: () => quitting
+})
 
 app.on('before-quit', () => {
   quitting = true
@@ -118,32 +95,35 @@ app.on('window-all-closed', () => undefined)
 if (!app.requestSingleInstanceLock()) app.quit()
 else void app.whenReady().then(start)
 
-app.on('second-instance', showWindow)
-// Opening the app again while it runs (Finder, Spotlight, `open`) shows the window.
-app.on('activate', showWindow)
+app.on('second-instance', () => mainWindow.show())
+// Clicking the Dock icon, or opening the app again while it runs (Finder, Spotlight, `open`),
+// shows the window. An activate before ready can't make a window yet; start() shows it then.
+app.on('activate', () => {
+  if (app.isReady()) mainWindow.show()
+})
 
 function start(): void {
-  app.dock?.hide()
   tray = new Tray(nativeImage.createEmpty())
   tray.setToolTip('Orca Overview')
   setMenuBarTitle('…')
   const menu = Menu.buildFromTemplate([
-    { label: 'Open', click: showWindow },
+    { label: 'Open', click: () => mainWindow.show() },
     { label: 'Refresh', click: () => void engine.refresh() },
     { type: 'separator' },
     { label: 'Quit', click: () => app.quit() }
   ])
-  tray.on('click', toggleWindow)
+  tray.on('click', () => mainWindow.toggle())
   tray.on('right-click', () => tray?.popUpContextMenu(menu))
 
   handleRequests(ipcMain, engine)
   handleViewState(ipcMain, storage)
   engine.onSnapshot((s: Snapshot) => {
     setMenuBarTitle(String(s.attention.length))
+    const win = mainWindow.current()
     if (win && !win.isDestroyed()) win.webContents.send('overview.snapshot', s)
   })
   engine.start()
   void requestLocalNetworkAccess(orcaJson)
   // Show the window at launch, so opening the app visibly does something.
-  showWindow()
+  mainWindow.show()
 }
