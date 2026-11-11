@@ -384,3 +384,26 @@ test('a notification click focuses and highlights its workspace’s card in Need
   const others = within(screen.getByRole('complementary', { name: 'Needs you' })).getAllByRole('article').filter((c) => c !== target)
   assert.ok(others.every((c) => !c.classList.contains('revealed')))
 })
+
+test('a notification click for a workspace that no longer needs you changes nothing', async () => {
+  const { api, reveal } = revealing()
+  render(<App api={api} />)
+  await card('feat/gh-60-non-csharp-engines')
+  const before = document.body.innerHTML
+  reveal('atlas-id::/ws/atlas/feat/gh-99-marked-read')
+  assert.ok(document.activeElement === document.body, `focus is on ${document.activeElement?.tagName}`)
+  assert.equal(document.body.innerHTML, before)
+})
+
+test('a notification click that arrives before the first snapshot shows its card once the snapshot does', async () => {
+  let answer: (s: Snapshot) => void = () => undefined
+  const { api, reveal } = revealing()
+  const request = api.request as (c: string, i?: unknown) => Promise<unknown>
+  api.request = ((c: string, i?: unknown) => (c === 'overview.snapshot' ? new Promise((r) => (answer = r)) : request(c, i))) as OverviewApi['request']
+  render(<App api={api} />)
+  reveal('beacon-id::/ws/beacon/ci/gh-3-smoke-test')
+  await act(async () => answer(busySnapshot()))
+  const target = await card('ci/gh-3-smoke-test')
+  assert.ok(document.activeElement === target, `focus is on ${document.activeElement?.tagName}`)
+  assert.ok(target.classList.contains('revealed'))
+})
