@@ -1,4 +1,5 @@
-import { assert, test } from 'orca/testing'
+import assert from 'node:assert/strict'
+import { test } from 'node:test'
 import { orcaActions, type Opener, type OrcaJson } from './actions.ts'
 import type { PsWorktree } from './model.ts'
 
