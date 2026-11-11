@@ -108,6 +108,22 @@ test('new attention notifies once, and a new kind on the same workspace notifies
   engine.stop()
 })
 
+test('each notification names the workspace it is about; the summary of the rest names none', async () => {
+  const { cli, engineCli } = fakeCli([main('atlas')])
+  const targets: (string | undefined)[] = []
+  const { deps } = fakeDeps(engineCli, { notify: async (_title, _body, worktreeId) => void targets.push(worktreeId) })
+  const engine = createEngine(deps)
+  await engine.refresh()
+
+  cli.rows = [main('atlas'), ...['a', 'b', 'c', 'd', 'e'].map((n) => wt('atlas', `feat-${n}`, { unread: true }))]
+  await engine.refresh()
+  assert.equal(targets.length, 4)
+  assert.equal(new Set(targets.slice(0, 3)).size, 3, 'three different workspaces')
+  assert.ok(targets.slice(0, 3).every((id) => id?.startsWith('atlas-id::/ws/atlas/feat-')))
+  assert.equal(targets[3], undefined)
+  engine.stop()
+})
+
 test('the first run ever announces nothing that is already there', async () => {
   const { engineCli } = fakeCli([main('atlas'), wt('atlas', 'feat-a', { unread: true })])
   const { deps, notes } = fakeDeps(engineCli)

@@ -31,7 +31,8 @@ export interface EngineDeps {
     get(key: string): Promise<unknown>
     set(key: string, value: unknown): Promise<void>
   }
-  notify(title: string, body: string): Promise<void>
+  /** Announces something new; `worktreeId` is the workspace it is about, absent for a summary. */
+  notify(title: string, body: string, worktreeId?: string): Promise<void>
   /**
    * The CLI handles of the terminals in the workspace Orca shows. When several hosts report an
    * active workspace it picks the one Orca shows; without it, this machine's active one wins.
@@ -129,7 +130,7 @@ export function createEngine(deps: EngineDeps) {
         .map((a) => ({ a, reasons: a.reasons.filter((_, i) => !known.has(a.notifyKeys[i])) }))
         .filter((f) => f.reasons.length > 0)
       for (const { a, reasons } of fresh.slice(0, 3)) {
-        await deps.notify(`${a.projectName} · ${a.workspaceName}`, reasons.join(' · ').slice(0, 300)).catch(() => undefined)
+        await deps.notify(`${a.projectName} · ${a.workspaceName}`, reasons.join(' · ').slice(0, 300), a.worktreeId).catch(() => undefined)
       }
       if (fresh.length > 3) await deps.notify('Orca Overview', `${fresh.length - 3} more things need you.`).catch(() => undefined)
     }
