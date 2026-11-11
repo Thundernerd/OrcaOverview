@@ -97,8 +97,10 @@ else void app.whenReady().then(start)
 
 app.on('second-instance', () => mainWindow.show())
 // Clicking the Dock icon, or opening the app again while it runs (Finder, Spotlight, `open`),
-// shows the window.
-app.on('activate', () => mainWindow.show())
+// shows the window. An activate before ready can't make a window yet; start() shows it then.
+app.on('activate', () => {
+  if (app.isReady()) mainWindow.show()
+})
 
 function start(): void {
   tray = new Tray(nativeImage.createEmpty())
