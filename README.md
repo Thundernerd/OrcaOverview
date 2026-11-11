@@ -60,3 +60,7 @@ $ORCA plugin dev reload .     # load into Orca (asks for approval the first time
 $ORCA plugin dev request . overview.snapshot --json
 npx -p typescript tsc -p . --noEmit
 ```
+
+## License
+
+[MIT](LICENSE)
