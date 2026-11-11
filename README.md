@@ -44,8 +44,8 @@ Shows "N need you". Clicking it opens the oldest item that needs you. You also g
   - A project on a paired server shows the counts of your local checkout of the same repository.
 - **Skill buttons:** a button types `/<skill>` into an idle Claude session in the project's main workspace. If there isn't one, it starts a new session with `orca agent launch`.
 - **Rules:** `core/model.ts` is pure and holds every rule (what needs you, merging, projects, active workspace). See `core/model.test.ts`.
-- **Shared core:** `core/` holds what the plugin and the coming desktop app share: the engine, the rules, the ticket survey parser, the `orca` CLI calls (`core/cli.ts`, `core/actions.ts`) and the snapshot types. The engine (`core/engine.ts`) does the polling, the ticket survey schedule, pending merges and notifications. It doesn't use Orca's plugin API: the plugin's worker passes it storage, notifications, the focused workspace's terminals and an opener (`src/opener.ts`) built on that API, and shows each snapshot in the panel and the status bar. `src/` holds the plugin's worker and panel.
-- **Self-contained core:** nothing in `core/` imports `orca`. Its tests use `node:test`, and `core/node.d.ts` declares the few Node APIs it needs, so it type-checks without `@types/node`. A build that brings `@types/node` excludes `core/node.d.ts`.
+- **Shared core:** `core/` holds what the plugin and the desktop app (`desktop/`) share: the engine, the rules, the ticket survey parser, the `orca` CLI calls (`core/cli.ts`, `core/actions.ts`), the snapshot types and the request names (`core/protocol.ts`). The engine (`core/engine.ts`) does the polling, the ticket survey schedule, pending merges and notifications. It doesn't use Orca's plugin API: the plugin's worker passes it storage, notifications, the focused workspace's terminals and an opener (`src/opener.ts`) built on that API, and shows each snapshot in the panel and the status bar. `src/` holds the plugin's worker and panel.
+- **Self-contained core:** nothing in `core/` imports `orca`. Its tests use `node:test`, and `core/node.d.ts` declares the few Node APIs it needs, so it type-checks without `@types/node`. A build that brings `@types/node` excludes `core/node.d.ts`. `core/tsconfig.json` doesn't depend on Orca's generated types, so the desktop app builds from a fresh clone.
 
 ## Requirements
 
@@ -63,7 +63,33 @@ $ORCA plugin dev reload .     # load into Orca (asks for approval the first time
 $ORCA plugin dev request . overview.snapshot --json
 npx -p typescript tsc -p . --noEmit
 node --test 'core/*.test.ts'  # core's tests, without Orca
+npx -p typescript tsc -p core --noEmit  # core alone, without .orca/types
 ```
+
+## Desktop app
+
+`desktop/` is a macOS menu bar app that shows the overview outside Orca. It's an early skeleton: the menu bar shows how many items need you (the same count as the plugin's status bar), and its window lists the snapshot as plain text. The real window, notifications and saved settings come later.
+
+- **Engine:** the main process runs the same engine as the plugin. Orca's events don't reach apps outside it, so it polls every 5 s.
+- **Requests:** the window asks the main process over IPC, with the plugin's request names (`overview.snapshot`, `overview.runSkill`, …).
+- **Menu bar:** click the count to show or hide the window. Right-click for Open, Refresh and Quit. Closing the window keeps the app running. It has no Dock icon.
+- **Opening workspaces:** it uses `orca worktree activate` and `orca terminal switch`, since it can't use the plugin API.
+
+It needs Node and npm. Run these in `desktop/`:
+
+```sh
+npm install
+node node_modules/electron/install.js   # npm 11 skips Electron's install script
+npm run dev         # run it from source, with live reload
+npm run build       # an unsigned app in dist/mac-<arch>/Orca Overview.app
+npm test            # unit tests (also part of `orca plugin test`)
+npm run smoke       # launches the built app against a fake orca CLI
+npm run typecheck
+```
+
+The build isn't signed. If macOS refuses to open it, right-click the app and choose Open. `ORCA_OVERVIEW_CLI=/path/to/orca` points the app at a different `orca` binary.
+
+Don't install the plugin from a checkout that has `desktop/node_modules` (`orca plugin install .`). Install it from GitHub or from a clean clone (see `docs/spikes/repo-layout.md`).
 
 ## License
 
