@@ -45,6 +45,7 @@ Shows "N need you". Clicking it opens the oldest item that needs you. You also g
 - **Skill buttons:** a button types `/<skill>` into an idle Claude session in the project's main workspace. If there isn't one, it starts a new session with `orca agent launch`.
 - **Rules:** `core/model.ts` is pure and holds every rule (what needs you, merging, projects, active workspace). See `core/model.test.ts`.
 - **Shared core:** `core/` holds what the plugin and the coming desktop app share: the rules, the ticket survey parser, the `orca` CLI calls (`core/cli.ts`, `core/actions.ts`) and the snapshot types. It doesn't use Orca's plugin API: the plugin passes `core/actions.ts` an opener built on it (`src/opener.ts`). `src/` holds the plugin's worker and panel.
+- **Self-contained core:** nothing in `core/` imports `orca`. Its tests use `node:test`, and `core/node.d.ts` declares the few Node APIs it needs, so it type-checks without `@types/node`. A build that brings `@types/node` excludes `core/node.d.ts`.
 
 ## Requirements
 
@@ -61,6 +62,7 @@ $ORCA plugin check . --json   # renders the src/panel.check.ts scenarios
 $ORCA plugin dev reload .     # load into Orca (asks for approval the first time)
 $ORCA plugin dev request . overview.snapshot --json
 npx -p typescript tsc -p . --noEmit
+node --test 'core/*.test.ts'  # core's tests, without Orca
 ```
 
 ## License

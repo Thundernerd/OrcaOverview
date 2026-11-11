@@ -1,4 +1,5 @@
-import { assert, test } from 'orca/testing'
+import assert from 'node:assert/strict'
+import { test } from 'node:test'
 import { buildSnapshot, handleForPane, isIdleClaude, keepOneActive, omittedEnvironments, omittedHosts, tagRemote, type PsWorktree } from './model.ts'
 import { parseSurvey } from './survey.ts'
 
