@@ -1,7 +1,7 @@
 // Answers the window's requests in the main process, with the plugin's operation names
 // (OverviewRequests in core/protocol.ts), by passing each one to the engine.
 import type { Engine } from '../../../core/engine.ts'
-import type { OverviewRequests } from '../../../core/protocol.ts'
+import type { OverviewRequests, RequestInput } from '../../../core/protocol.ts'
 
 /** The engine calls the window can reach; tests pass a fake. */
 export type RequestEngine = Pick<Engine, 'snapshot' | 'refresh' | 'refreshTickets' | 'runSkill' | 'open' | 'reply' | 'markRead' | 'setHidden'>
@@ -12,9 +12,7 @@ export interface IpcMainLike {
 }
 
 type Handlers = {
-  [K in keyof OverviewRequests]: (
-    input: OverviewRequests[K] extends { input: infer I } ? I : undefined
-  ) => Promise<OverviewRequests[K]['output']>
+  [K in keyof OverviewRequests]: (input: RequestInput<K>) => Promise<OverviewRequests[K]['output']>
 }
 
 export function handleRequests(ipc: IpcMainLike, engine: RequestEngine): void {

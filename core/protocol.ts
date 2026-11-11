@@ -131,3 +131,6 @@ export interface OverviewRequests {
   /** Hides or shows a project. */
   'overview.setHidden': { input: { projectId: string; hidden: boolean }; output: Snapshot }
 }
+
+/** What a request takes: its `input`, or nothing. */
+export type RequestInput<K extends keyof OverviewRequests> = OverviewRequests[K] extends { input: infer I } ? I : undefined
