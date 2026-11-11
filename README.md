@@ -43,7 +43,8 @@ Shows "N need you". Clicking it opens the oldest item that needs you. You also g
   - It runs in each project's main workspace every 5 minutes, or when you press ↻ on the card. It needs `gh`, `jq` and `git`, and it runs `git fetch`.
   - A project on a paired server shows the counts of your local checkout of the same repository.
 - **Skill buttons:** a button types `/<skill>` into an idle Claude session in the project's main workspace. If there isn't one, it starts a new session with `orca agent launch`.
-- **Rules:** `src/model.ts` is pure and holds every rule (what needs you, merging, projects, active workspace). See `src/model.test.ts`.
+- **Rules:** `core/model.ts` is pure and holds every rule (what needs you, merging, projects, active workspace). See `core/model.test.ts`.
+- **Shared core:** `core/` holds what the plugin and the coming desktop app share: the rules, the ticket survey parser, the `orca` CLI calls (`core/cli.ts`, `core/actions.ts`) and the snapshot types. It doesn't use Orca's plugin API: the plugin passes `core/actions.ts` an opener built on it (`src/opener.ts`). `src/` holds the plugin's worker and panel.
 
 ## Requirements
 
