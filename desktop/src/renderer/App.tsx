@@ -106,13 +106,32 @@ function Button({ children, disabled, title, label, onClick, variant = 'outline'
   )
 }
 
-function AttentionCard({ item, project, actions }: { item: AttentionItem; project: Project | undefined; actions: Actions }) {
+/** A notification click that asked to show a workspace's card. `n` counts clicks, so clicking the same one again shows it again. */
+type Reveal = { worktreeId: string; n: number }
+
+/** How long a revealed card stays highlighted; the same as the `reveal` animation in styles.css. */
+const REVEAL_MS = 2_000
+
+function AttentionCard({ item, project, actions, revealed }: {
+  item: AttentionItem
+  project: Project | undefined
+  actions: Actions
+  /** Set (to the click's `n`) while a notification click shows this card. */
+  revealed?: number
+}) {
+  const ref = useRef<HTMLElement>(null)
+  useEffect(() => {
+    if (!revealed || !ref.current) return
+    // jsdom has no scrollIntoView.
+    ref.current.scrollIntoView?.({ block: 'nearest' })
+    ref.current.focus({ preventScroll: true })
+  }, [revealed])
   const replying = actions.editing === `reply:${item.key}`
   const has = (k: AttentionKind) => item.kinds.includes(k)
   const remote = Boolean(project?.host)
   const tip = remote ? REMOTE_TIP : undefined
   return (
-    <article className={`card attention ${KIND[item.kind].tone}`}>
+    <article ref={ref} tabIndex={-1} className={`card attention ${KIND[item.kind].tone}${revealed ? ' revealed' : ''}`}>
       {/* Kind and age on their own line, so a long workspace name can never push them out. */}
       <div className="row between">
         <div className="row">
@@ -345,6 +364,22 @@ export function App({ api }: { api: OverviewApi }) {
   const running = useRef(false)
   const [editing, setEditing] = useState<string | null>(null)
   const view = useView(api)
+  // A notification click waits in `asked` for a snapshot, then shows its card while `shown` is set.
+  const clicks = useRef(0)
+  const [asked, setAsked] = useState<Reveal | null>(null)
+  const [shown, setShown] = useState<Reveal | null>(null)
+  useEffect(() => api.onReveal((worktreeId) => setAsked({ worktreeId, n: ++clicks.current })), [api])
+  useEffect(() => {
+    if (!asked || !snapshot) return
+    // A workspace that no longer needs you (marked read in between) leaves the window as it is.
+    if (snapshot.attention.some((a) => a.worktreeId === asked.worktreeId)) setShown(asked)
+    setAsked(null)
+  }, [asked, snapshot])
+  useEffect(() => {
+    if (!shown) return
+    const timer = setTimeout(() => setShown(null), REVEAL_MS)
+    return () => clearTimeout(timer)
+  }, [shown])
   useEffect(() => {
     api
       .request('overview.snapshot')
@@ -455,7 +490,13 @@ export function App({ api }: { api: OverviewApi }) {
           <div className="scroll">
             {snapshot.attention.length === 0 ? <p className="muted">Nothing is waiting on you.</p> : null}
             {snapshot.attention.map((item) => (
-              <AttentionCard key={item.key} item={item} project={byId.get(item.projectId)} actions={actions} />
+              <AttentionCard
+                key={item.key}
+                item={item}
+                project={byId.get(item.projectId)}
+                actions={actions}
+                revealed={shown?.worktreeId === item.worktreeId ? shown.n : undefined}
+              />
             ))}
           </div>
         </aside>

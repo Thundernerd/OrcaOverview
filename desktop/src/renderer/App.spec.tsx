@@ -34,7 +34,8 @@ function fakeApi(snapshot: Snapshot = busySnapshot(), calls: Call[] = [], overri
       if (channel !== 'overview.snapshot') calls.push({ channel, input })
       return answers[channel]
     }) as OverviewApi['request'],
-    onSnapshot: () => () => undefined
+    onSnapshot: () => () => undefined,
+    onReveal: () => () => undefined
   }
 }
 
@@ -363,4 +364,23 @@ test('says so when Orca has no projects', async () => {
 test('shows why the first snapshot could not be read', async () => {
   render(<App api={failing('overview.snapshot', 'orca: command not found')} />)
   assert.match((await screen.findByRole('alert')).textContent!, /orca: command not found/)
+})
+
+/** fakeApi, with a `reveal` that does what a notification click does in the main process. */
+function revealing(snapshot: Snapshot = busySnapshot()): { api: OverviewApi; reveal(worktreeId: string): void } {
+  let listener: (worktreeId: string) => void = () => undefined
+  const api = { ...fakeApi(snapshot), onReveal: (l: (worktreeId: string) => void) => ((listener = l), () => undefined) }
+  return { api, reveal: (worktreeId) => act(() => listener(worktreeId)) }
+}
+
+test('a notification click focuses and highlights its workspace’s card in Needs you', async () => {
+  const { api, reveal } = revealing()
+  render(<App api={api} />)
+  const target = await card('feat/gh-60-non-csharp-engines')
+  reveal('atlas-id::/ws/atlas/feat/gh-60-non-csharp-engines')
+  // assert.ok, not assert.equal: a failing equal would print both DOM nodes in full.
+  assert.ok(document.activeElement === target, `focus is on ${document.activeElement?.tagName}`)
+  assert.ok(target.classList.contains('revealed'), 'highlighted')
+  const others = within(screen.getByRole('complementary', { name: 'Needs you' })).getAllByRole('article').filter((c) => c !== target)
+  assert.ok(others.every((c) => !c.classList.contains('revealed')))
 })
