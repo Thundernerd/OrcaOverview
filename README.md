@@ -1,0 +1,62 @@
+# Orca Overview
+
+An [Orca](https://onorca.dev) plugin: one sidebar panel for every project and its ticket workspaces. It puts what needs you first and gives one-click access to the ticket skills (`/launch-tickets`, `/merge-tickets`, `/clean-workspaces`, `/write-ticket`).
+
+## What it shows
+
+### Needs you
+
+One list across all projects, with one card per workspace:
+
+- **Order:** blocked or waiting agents and failing CI come first, then PRs ready to merge, then workspaces flagged unread or with a `blocked: …` comment. Within each group, what has waited longest is on top.
+- **Actions:** Open (goes straight to the agent's tab), Open main, Reply (the text goes to the agent's terminal), Mark read and Merge tickets.
+- **During a merge:** while `/merge-tickets` runs in a project, its "Ready to merge" items are hidden. The run is already working through them.
+
+### Projects
+
+One card per repository, showing:
+
+- what needs you, agents working, open PRs, tickets ready to launch, and merged workspaces to clean up
+- buttons for the four skills
+- a table of the project's workspaces
+
+You can:
+
+- **Minimize** a card down to its header and badges.
+- **Pin** a card to keep it at the top.
+- **Hide** a project. Hidden projects stay out of "Needs you" and out of the counts.
+
+The project you're working in is highlighted.
+
+### Paired servers
+
+Workspaces on paired Orca servers (`orca environment`) show up as their own projects, marked with the server's name. Reply, Mark read and the skill buttons work on them. Open is disabled, because Orca can't yet show a paired server's workspace in this window from a plugin ([stablyai/orca#31073](https://github.com/stablyai/orca/issues/31073), [#40723](https://github.com/stablyai/orca/issues/40723)).
+
+### Status bar
+
+Shows "N need you". Clicking it opens the oldest item that needs you. You also get a desktop notification when something new needs you.
+
+## How it works
+
+- **Polling:** `src/worker.ts` reads `orca worktree ps --json` every 15 s, and right away on workspace and agent events. It also reads each paired server that `ps` lists as omitted, using `--environment`. The worker uses the CLI because Orca's plugin host API only sees the focused workspace.
+- **Ticket counts:** these come from `~/.claude/skills/launch-tickets/scripts/survey.sh`.
+  - It runs in each project's main workspace every 5 minutes, or when you press ↻ on the card. It needs `gh`, `jq` and `git`, and it runs `git fetch`.
+  - A project on a paired server shows the counts of your local checkout of the same repository.
+- **Skill buttons:** a button types `/<skill>` into an idle Claude session in the project's main workspace. If there isn't one, it starts a new session with `orca agent launch`.
+- **Rules:** `src/model.ts` is pure and holds every rule (what needs you, merging, projects, active workspace). See `src/model.test.ts`.
+
+## Requirements
+
+- Orca 1.4.248 or later. The worker runs as a trusted worker, so Orca asks you to approve it.
+- The ticket skills in `~/.claude/skills` for the ticket counts and buttons. Without them the rest of the panel still works.
+
+## Develop
+
+```sh
+ORCA=/Applications/Orca.app/Contents/Resources/bin/orca
+$ORCA plugin test .           # unit and panel tests
+$ORCA plugin check . --json   # renders the src/panel.check.ts scenarios
+$ORCA plugin dev reload .     # load into Orca (asks for approval the first time)
+$ORCA plugin dev request . overview.snapshot --json
+npx -p typescript tsc -p . --noEmit
+```
