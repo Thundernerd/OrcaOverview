@@ -153,3 +153,26 @@ test('projects show their ticket counts loading as soon as a refresh queues thei
   assert.equal(engine.snapshot()?.projects[0].ticketsLoading, true)
   engine.stop()
 })
+
+/** A fake CLI for this machine plus one paired server, `devbox`, that `ps` leaves out. */
+function pairedCli(local: PsWorktree[], remote: PsWorktree[]) {
+  const orcaJson: OrcaJson = async <T>(args: string[]) => {
+    if (args[0] === 'worktree' && args[1] === 'ps') {
+      if (args.includes('--environment')) return { worktrees: remote } as T
+      const hostScope = { omittedHostSelectors: [{ hostId: 'runtime:devbox-runtime', selector: '--environment devbox' }] }
+      return { worktrees: local, hostScope } as T
+    }
+    if (args[0] === 'terminal' && args[1] === 'list') return { terminals: [] } as T
+    return {} as T
+  }
+  const engineCli: EngineCli = { orcaJson, surveyAvailable: () => false, surveyTickets: async () => '{}' }
+  return engineCli
+}
+
+test('with two hosts reporting an active workspace, the focused workspace input keeps the remote one', async () => {
+  const engineCli = pairedCli([main('atlas', { isActive: true })], [main('atlas', { isActive: true }), wt('atlas', 'feat-b')])
+  const focusedWorkspace = async () => ({ hostId: 'runtime:devbox-runtime', worktreeId: 'atlas-id::/ws/atlas/main' })
+  const s = await createEngine(fakeDeps(engineCli, { focusedWorkspace }).deps).refresh()
+  const active = s.projects.filter((p) => p.isActive).map((p) => [p.host ?? 'local', p.activeWorkspace])
+  assert.deepEqual(active, [['devbox', 'main']])
+})

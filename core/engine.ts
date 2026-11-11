@@ -25,6 +25,11 @@ export interface EngineCli {
   surveyAvailable(): boolean
 }
 
+export interface FocusedWorkspace {
+  hostId: string
+  worktreeId: string
+}
+
 export interface EngineDeps {
   /** Keeps values across restarts. */
   storage: {
@@ -37,6 +42,12 @@ export interface EngineDeps {
    * active workspace it picks the one Orca shows; without it, this machine's active one wins.
    */
   focusedTerminals?: () => Promise<string[]>
+  /**
+   * The workspace Orca shows, for apps outside Orca that can't read its terminals: the host as this
+   * machine's `worktree ps` names it (`local`, or a paired server's `runtime:<id>` from hostScope)
+   * and the worktree id as that host reports it. Checked before `focusedTerminals`.
+   */
+  focusedWorkspace?: () => Promise<FocusedWorkspace | null>
   opener: Opener
   pollMs: number
   log?(message: string): void
@@ -68,6 +79,8 @@ export function createEngine(deps: EngineDeps) {
   const pendingMerges = new Map<string, number>()
   /** The last decision between several hosts' active workspaces, keyed by what it was made from. */
   let activeChoice: { key: string; keep: string | null } | null = null
+  /** Paired server environment name -> its host id in this machine's `worktree ps` hostScope. */
+  let envHosts = new Map<string, string | null>()
   let refreshing: Promise<Snapshot> | null = null
   let debounce: ReturnType<typeof setTimeout> | null = null
   let timer: ReturnType<typeof setInterval> | null = null
@@ -157,8 +170,10 @@ export function createEngine(deps: EngineDeps) {
     type Ps = { worktrees?: PsWorktree[]; hostScope?: { omittedHostSelectors?: { selector?: string; hostId?: string }[] } }
     const local = await cli.orcaJson<Ps>(['worktree', 'ps'])
     const nextWarnings: string[] = []
+    const hosts = omittedHosts(local.hostScope)
+    envHosts = new Map(hosts.map((h) => [h.env, h.hostId]))
     const remote = await Promise.all(
-      omittedHosts(local.hostScope).map(async ({ env }) => {
+      hosts.map(async ({ env }) => {
         try {
           const r = await cli.orcaJson<Ps>(['worktree', 'ps', '--environment', env], REMOTE_TIMEOUT_MS)
           return tagRemote(env, r.worktrees ?? [])
@@ -180,6 +195,9 @@ export function createEngine(deps: EngineDeps) {
   async function pickActive(rows: PsWorktree[]): Promise<PsWorktree[]> {
     const candidates = rows.filter((w) => w.isActive)
     if (candidates.length <= 1) return rows
+    const focused = deps.focusedWorkspace ? await deps.focusedWorkspace().catch(() => null) : null
+    const shown = focused && candidates.find((c) => hostOf(c) === focused.hostId && (c.rawWorktreeId ?? c.worktreeId) === focused.worktreeId)
+    if (shown) return keepOneActive(rows, shown.worktreeId)
     const ids = new Set(deps.focusedTerminals ? await deps.focusedTerminals().catch(() => []) : [])
     const key = `${candidates.map((c) => c.worktreeId).join('|')}#${[...ids].sort().join(',')}`
     if (activeChoice?.key !== key) {
@@ -198,6 +216,8 @@ export function createEngine(deps: EngineDeps) {
     }
     return keepOneActive(rows, activeChoice.keep)
   }
+
+  const hostOf = (w: PsWorktree): string | null => (w.env ? (envHosts.get(w.env) ?? null) : 'local')
 
   // Ticket counts: survey.sh per project, at most two at a time, results kept in storage.
   /** Queues the surveys that are due; true when it queued any. */

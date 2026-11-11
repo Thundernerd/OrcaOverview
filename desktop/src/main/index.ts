@@ -33,6 +33,8 @@ const engine = createEngine({
   // Desktop notifications come with #7.
   notify: async () => undefined,
   opener: cliOpener(orcaJson),
+  // No focusedTerminals or focusedWorkspace: the CLI can't say which workspace Orca's window shows
+  // (#14), so with paired servers this machine's active workspace stays the active one.
   pollMs: POLL_MS,
   log: (message) => console.error(message),
   cli: { orcaJson, surveyTickets, surveyAvailable }
