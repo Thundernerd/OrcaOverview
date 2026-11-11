@@ -44,6 +44,7 @@
         "LSUIElement": true,
         "NSLocalNetworkUsageDescription": "Orca Overview reads the workspaces on your paired Orca servers through the orca command."
       }
-    }
+    },
+    "afterPack": "build/unique-uuid.cjs"
   }
 }
