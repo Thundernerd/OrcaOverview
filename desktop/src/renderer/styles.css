@@ -144,4 +144,6 @@ td { padding: 2px 4px; border-bottom: 1px solid var(--border); white-space: nowr
 td.name { max-width: 0; width: 100%; overflow: hidden; text-overflow: ellipsis; }
 td.name button { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 tr.active td { color: var(--accent); }
-@container (max-width: 410px) { .wide { display: none; } }
+/* Below this the PR, Status and Active columns would squeeze the name to a few letters. A card at
+   the grid's 320px minimum hides them; the ~400px cards of a 1200px window keep them. */
+@container (max-width: 340px) { .wide { display: none; } }
