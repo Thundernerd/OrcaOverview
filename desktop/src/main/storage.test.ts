@@ -1,6 +1,6 @@
 // The engine's storage in the desktop app: one JSON file in the app's userData folder.
 import assert from 'node:assert/strict'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
@@ -39,4 +39,16 @@ test('a corrupt file reads as empty, and the next save replaces it', async (t) =
     await storage.set('notified', ['atlas-id::/ws/atlas/feat-a#unread'])
     assert.deepEqual(await fileStorage(file).get('notified'), ['atlas-id::/ws/atlas/feat-a#unread'], corrupt)
   }
+})
+
+test('a file that exists but cannot be read is not overwritten', async (t) => {
+  const file = join(tempDir(t), 'settings.json')
+  writeFileSync(file, '{"hidden":["atlas-id"]}')
+  chmodSync(file, 0o000)
+  const storage = fileStorage(file)
+  assert.equal(await storage.get('hidden'), undefined, 'starts with nothing, so the app still starts')
+
+  await assert.rejects(storage.set('hidden', []), /could not be read/)
+  chmodSync(file, 0o600)
+  assert.equal(readFileSync(file, 'utf8'), '{"hidden":["atlas-id"]}', 'the saved settings are kept')
 })
