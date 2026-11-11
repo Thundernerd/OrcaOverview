@@ -7,6 +7,7 @@ export interface NotificationLike {
   show(): void
 }
 
+/** What the notifier needs from the app: a way to make a notification and to show its item. */
 export interface NotifierDeps {
   /** Makes a notification; the app passes `new Notification(options)`, tests a fake. */
   create(options: { title: string; body: string }): NotificationLike
@@ -14,6 +15,7 @@ export interface NotifierDeps {
   reveal(worktreeId: string | null): void
 }
 
+/** The engine's `notify`, showing each notification and routing its click through `reveal`. */
 export function desktopNotifier(deps: NotifierDeps): EngineDeps['notify'] {
   // Electron drops a notification's click once nothing refers to it, so keep each one until it
   // is clicked or closed.
