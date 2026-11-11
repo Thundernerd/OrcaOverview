@@ -37,7 +37,8 @@ function unread(...names: string[]) {
 /** A fresh folder for one test: the fake CLI and the app's user data. Removed afterwards. */
 function tempDir(t: { after(fn: () => void): void }): string {
   const dir = mkdtempSync(join(tmpdir(), 'orca-overview-smoke-'))
-  t.after(() => rmSync(dir, { recursive: true, force: true }))
+  // The app's helper processes can outlive it by a moment, still writing to the folder.
+  t.after(() => rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 }))
   return dir
 }
 
@@ -104,8 +105,12 @@ function launch(dir: string) {
     },
     /** Quits the app and waits until it has exited, so nothing writes to `dir` afterwards. */
     async quit(): Promise<void> {
-      if (app.exitCode === null && app.signalCode === null) app.kill()
+      if (app.exitCode !== null || app.signalCode !== null) return
+      app.kill()
+      // If it doesn't quit on SIGTERM, don't hang the test: force it.
+      const force = setTimeout(() => app.kill('SIGKILL'), 5_000)
       await exited
+      clearTimeout(force)
     }
   }
 }
