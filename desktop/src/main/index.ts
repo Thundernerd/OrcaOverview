@@ -84,7 +84,13 @@ app.on('before-quit', () => {
 // Keep running with the window closed: the menu bar item is the app.
 app.on('window-all-closed', () => undefined)
 
-void app.whenReady().then(() => {
+// One copy at a time: a second launch shows the first one's window and quits.
+if (!app.requestSingleInstanceLock()) app.quit()
+else void app.whenReady().then(start)
+
+app.on('second-instance', showWindow)
+
+function start(): void {
   app.dock?.hide()
   tray = new Tray(nativeImage.createEmpty())
   tray.setToolTip('Orca Overview')
@@ -104,4 +110,4 @@ void app.whenReady().then(() => {
     if (win && !win.isDestroyed()) win.webContents.send('overview.snapshot', s)
   })
   engine.start()
-})
+}

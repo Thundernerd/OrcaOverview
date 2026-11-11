@@ -81,7 +81,7 @@ test('the built app shows the needs-you count in the menu bar', async () => {
       app.stderr.on('data', read)
       app.on('exit', (code) => {
         clearTimeout(timer)
-        reject(new Error(`the app exited (${code}) before showing a count; output:\n${out}`))
+        reject(new Error(`the app exited (${code}) before showing a count (is another copy running?); output:\n${out}`))
       })
     })
     assert.equal(title, '2')
