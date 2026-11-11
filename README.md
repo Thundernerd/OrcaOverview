@@ -87,7 +87,7 @@ npm run smoke       # launches the built app against a fake orca CLI
 npm run typecheck
 ```
 
-The build isn't signed. If macOS refuses to open it, right-click the app and choose Open. `ORCA_OVERVIEW_CLI=/path/to/orca` points the app at a different `orca` binary.
+The build is only ad-hoc signed. If macOS refuses to open it, right-click the app and choose Open. To read paired servers on your network, the app needs Local Network access: allow it when macOS asks, or turn on Orca Overview under System Settings → Privacy & Security → Local Network. Without it those servers show "Could not connect to the remote Orca runtime". `ORCA_OVERVIEW_CLI=/path/to/orca` points the app at a different `orca` binary.
 
 Don't install the plugin from a checkout that has `desktop/node_modules` (`orca plugin install .`). Install it from GitHub or from a clean clone (see `docs/spikes/repo-layout.md`).
 
