@@ -6,11 +6,11 @@ CLI alone show a local workspace and its agent's tab in Orca's window?
 
 ## Answer
 
-| Step | Command | Moves Orca's window? |
-| --- | --- | --- |
-| 1 | `orca worktree activate --worktree id:<repoId>::<path> --json` | **Yes.** It shows the workspace, but on the tab the workspace last showed, not the agent's tab. |
-| 2 | `orca terminal switch --terminal <handle> --json` | **Yes.** It shows the agent's tab. |
-| 2 alone | `orca terminal switch` from another workspace, no step 1 | **Yes.** It opens the workspace and the agent's tab in one call (`"navigated": true`). |
+| Step | Command | Moves Orca's window? | Shows the agent's tab? |
+| --- | --- | --- | --- |
+| 1 | `orca worktree activate --worktree id:<repoId>::<path> --json` | **Yes**, to the workspace. | **No.** It shows the tab the workspace last showed. |
+| 2 | `orca terminal switch --terminal <handle> --json` | **Yes.** | **Yes.** |
+| 2 alone | `orca terminal switch` from another workspace, no step 1 | **Yes**, to the workspace (`"navigated": true`). | **Yes**, in the same call. |
 
 The desktop app can open a local workspace on its agent's tab with one call:
 `orca terminal switch --terminal <handle>`. It finds the handle the way `src/actions.ts` does: from
@@ -22,7 +22,8 @@ tab. It only looks that way when the agent's tab was already the workspace's cur
 
 ## Setup
 
-- Orca 1.4.253 on macOS. Paired-server workspaces are out of scope (stablyai/orca#31073).
+- Orca 1.4.253 on macOS. Paired-server workspaces are out of scope
+  ([stablyai/orca#31073](https://github.com/stablyai/orca/issues/31073)).
 - Every command ran from a shell started with `env -i HOME=$HOME PATH=/usr/bin:/bin`, from `/`.
   That shell had no `ORCA_*` variables, so the CLI had no idea which terminal or workspace it was
   called from, just like a process outside Orca.
@@ -45,8 +46,8 @@ tab. It only looks that way when the agent's tab was already the workspace's cur
     jq -c --arg t "$TARGET" '{activeWorktreeId, activeTabId, targetActiveTab: .activeTabIdByWorktree[$t]}'
   ```
 
-  Orca writes it within a second or two of a change, and its tab ids match the `tabId` from
-  `terminal list`. It is internal state, not a supported API: good enough for this spike, but the
+  Orca writes it shortly after a change, so each read below ran 2 seconds after the command
+  before it. Its tab ids match the `tabId` from `terminal list`. It is internal state, not a supported API: good enough for this spike, but the
   desktop app shouldn't depend on it.
 
 `orca computer get-app-state` (Orca's accessibility snapshot) would have been a second check, but
@@ -55,7 +56,9 @@ it needs the Accessibility permission, which wasn't granted.
 ## Run
 
 Ids, handles and paths below are made up but consistent: the same value stands for the same thing
-throughout. Each JSON answer is shown in full, except the request `id` and `_meta.runtimeId`.
+throughout. The `worktree activate` and `terminal switch` answers are shown in full, except the
+request `id` and `_meta.runtimeId`. The `worktree ps`, `terminal list` and window-state answers
+are filtered with the `jq` shown, keeping only the fields that matter here.
 
 ```sh
 ORCA=/Applications/Orca.app/Contents/Resources/bin/orca
@@ -68,6 +71,27 @@ OTHER='7c3e9a10-5b2d-4f8e-9a61-2d4c8b0e1f35::/Users/dev/orca/workspaces/example-
 | Agent terminal (`paneKey` `1b6f0c3a-…:6d2a8e41-…`) | `term_5a1e6c2b-8f3d-4e71-b0a9-3c6d2e8f1a47`, tab `1b6f0c3a-2e94-4d58-a7c1-9e0b5d3f2a68` |
 | `spike-shell` terminal | `term_c49d2e7f-1a6b-4c38-9e05-7b2f8a1d3c64`, tab `9e7c1d04-3b5a-4f26-8d19-6a0e2c4b8f73` |
 | `OTHER`'s current tab | `0c5e9b27-6d1f-4a83-b2e4-8f7a3c1d6e90` |
+
+### Finding the agent's handle
+
+```sh
+$ORCA worktree ps --json | jq -r --arg t "$TARGET" '.result.worktrees[] | select(.worktreeId == $t) | .agents[0].paneKey'
+```
+
+```text
+1b6f0c3a-2e94-4d58-a7c1-9e0b5d3f2a68:6d2a8e41-7c05-4b93-8f1e-0a3b9c5d7e12
+```
+
+```sh
+$ORCA terminal list --worktree "id:$TARGET" --json | jq -c '.result.terminals[] | {handle, tabId, leafId, title}'
+```
+
+```json
+{"handle":"term_5a1e6c2b-8f3d-4e71-b0a9-3c6d2e8f1a47","tabId":"1b6f0c3a-2e94-4d58-a7c1-9e0b5d3f2a68","leafId":"6d2a8e41-7c05-4b93-8f1e-0a3b9c5d7e12","title":"example-app-plan"}
+{"handle":"term_c49d2e7f-1a6b-4c38-9e05-7b2f8a1d3c64","tabId":"9e7c1d04-3b5a-4f26-8d19-6a0e2c4b8f73","leafId":"2f8b3e6c-4a17-4d90-b5e2-1c7f9a3d0e58","title":"spike-shell"}
+```
+
+The first terminal's `tabId:leafId` is the agent's `paneKey`, so its handle is the agent's.
 
 ### Before: Orca shows `OTHER`, and the target was left on `spike-shell`
 
@@ -164,12 +188,14 @@ the output). Nothing in it says the tab is shown.
 ### Step 2 alone: `terminal switch` from another workspace (yes: workspace and tab in one call)
 
 `spike-shell` was closed (`terminal close --terminal term_c49d… --tab --json`) and Orca was moved
-back to `OTHER` with `worktree activate --worktree "id:$OTHER"`:
+back to `OTHER` with `worktree activate --worktree "id:$OTHER"`. `worktree ps`: `OTHER` is active.
 
 ```json
 [{"worktreeId":"7c3e9a10-5b2d-4f8e-9a61-2d4c8b0e1f35::/Users/dev/src/example-app","isActive":false},
  {"worktreeId":"7c3e9a10-5b2d-4f8e-9a61-2d4c8b0e1f35::/Users/dev/orca/workspaces/example-app/feat-gh-7-sign-in","isActive":true}]
 ```
+
+Saved window state: Orca shows `OTHER`, and the target's current tab is now the agent's.
 
 ```json
 {"activeWorktreeId":"7c3e9a10-5b2d-4f8e-9a61-2d4c8b0e1f35::/Users/dev/orca/workspaces/example-app/feat-gh-7-sign-in",
@@ -197,9 +223,13 @@ $ORCA terminal switch --terminal term_5a1e6c2b-8f3d-4e71-b0a9-3c6d2e8f1a47 --jso
 }
 ```
 
+`worktree ps`: the target is active.
+
 ```json
 [{"worktreeId":"7c3e9a10-5b2d-4f8e-9a61-2d4c8b0e1f35::/Users/dev/src/example-app","isActive":true}]
 ```
+
+Saved window state: the target is shown, on the agent's tab.
 
 ```json
 {"activeWorktreeId":"7c3e9a10-5b2d-4f8e-9a61-2d4c8b0e1f35::/Users/dev/src/example-app",
