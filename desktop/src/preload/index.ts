@@ -8,7 +8,9 @@ const api: OverviewApi = {
     const forward = (_event: unknown, s: Parameters<typeof listener>[0]) => listener(s)
     ipcRenderer.on('overview.snapshot', forward)
     return () => void ipcRenderer.removeListener('overview.snapshot', forward)
-  }
+  },
+  loadView: () => ipcRenderer.invoke('view.load'),
+  saveView: (state) => ipcRenderer.invoke('view.save', state)
 }
 
 contextBridge.exposeInMainWorld('overview', api)

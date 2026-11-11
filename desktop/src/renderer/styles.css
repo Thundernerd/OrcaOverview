@@ -1,0 +1,111 @@
+/* The window's look. Colors follow macOS light and dark mode through prefers-color-scheme. */
+:root {
+  color-scheme: light dark;
+  --bg: #f5f5f7;
+  --card: #ffffff;
+  --text: #1d1d1f;
+  --muted: #6e6e73;
+  --border: #d2d2d7;
+  --hover: rgba(0, 0, 0, 0.05);
+  --accent: #0a64d8;
+  --accent-text: #ffffff;
+  --danger: #c4271c;
+  --warning: #a35c00;
+  --success: #1c7c3a;
+  --neutral: #6e6e73;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1e1e20;
+    --card: #2a2a2d;
+    --text: #f5f5f7;
+    --muted: #a1a1a6;
+    --border: #3d3d41;
+    --hover: rgba(255, 255, 255, 0.07);
+    --accent: #4c9bff;
+    --accent-text: #0b1a2e;
+    --danger: #ff6b5e;
+    --warning: #ffb340;
+    --success: #4cd07a;
+    --neutral: #a1a1a6;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font: 13px/1.4 -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  color: var(--text);
+  background: var(--bg);
+}
+
+main { display: flex; flex-direction: column; gap: 12px; padding: 12px 14px 20px; }
+section { display: flex; flex-direction: column; gap: 8px; }
+h1 { font-size: 17px; margin: 0; }
+h2 { font-size: 14px; margin: 4px 0 0; }
+h3 { font-size: 13px; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+p { margin: 0; }
+
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
+.row.between { justify-content: space-between; flex-wrap: nowrap; }
+.muted { color: var(--muted); }
+.small { font-size: 12px; }
+.accent { color: var(--accent); }
+
+.card {
+  display: flex; flex-direction: column; gap: 6px; min-width: 0;
+  padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--card);
+}
+.card.attention.danger { border-color: var(--danger); }
+.card.attention.warning { border-color: var(--warning); }
+.card.attention.success { border-color: var(--success); }
+.card.project.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.reason { font-size: 12px; }
+
+.badge {
+  display: inline-block; padding: 0 6px; border-radius: 9px; font-size: 11px; font-weight: 600; line-height: 18px;
+  white-space: nowrap; border: 1px solid currentColor;
+}
+.badge.danger { color: var(--danger); }
+.badge.warning { color: var(--warning); }
+.badge.success { color: var(--success); }
+.badge.accent { color: var(--accent); }
+.badge.neutral { color: var(--neutral); }
+
+button {
+  font: inherit; font-size: 12px; color: var(--text); background: transparent; cursor: pointer;
+  padding: 2px 8px; border-radius: 6px; border: 1px solid var(--border);
+}
+button:hover:not(:disabled) { background: var(--hover); }
+button:disabled { opacity: 0.45; cursor: default; }
+button.solid { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+button.solid:hover:not(:disabled) { background: var(--accent); filter: brightness(1.08); }
+button.ghost { border-color: transparent; }
+button.link { border: none; padding: 0; text-align: left; color: inherit; }
+button.link:hover:not(:disabled) { background: none; text-decoration: underline; }
+
+.prompt input {
+  width: 100%; font: inherit; padding: 4px 8px; color: var(--text); background: var(--bg);
+  border: 1px solid var(--border); border-radius: 6px;
+}
+.prompt input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+.callout {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;
+  padding: 6px 10px; border-radius: 8px; border: 1px solid currentColor; background: var(--card);
+}
+.callout > span { color: var(--text); flex: 1; }
+.callout.danger { color: var(--danger); }
+.callout.warning { color: var(--warning); }
+.callout.success { color: var(--success); }
+
+details > summary { cursor: pointer; font-size: 12px; color: var(--muted); }
+table { width: 100%; border-collapse: collapse; margin-top: 4px; font-size: 12px; table-layout: auto; }
+th { text-align: left; font-weight: 600; color: var(--muted); border-bottom: 1px solid var(--border); padding: 2px 4px; }
+td { padding: 2px 4px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+td.name { max-width: 0; width: 100%; overflow: hidden; text-overflow: ellipsis; }
+td.name button { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+tr.active td { color: var(--accent); }
+@media (max-width: 460px) { .wide { display: none; } }
