@@ -23,7 +23,7 @@ import {
   type TableRow,
   type Tone
 } from 'orca'
-import type { AttentionItem, AttentionKind, Project, Skill, Snapshot, WorkspaceRow } from './protocol.ts'
+import type { AttentionItem, AttentionKind, Project, Skill, Snapshot, WorkspaceRow } from '../core/protocol.ts'
 
 const snapshot = atom<Snapshot | null>(null)
 const busy = atom<string | null>(null)
