@@ -3,7 +3,7 @@
 // needs the built .app. Run it with `npm run smoke`.
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
-import { chmodSync, existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
@@ -123,4 +123,37 @@ test('the built app shows the needs-you count in the menu bar', async (t) => {
   } finally {
     await app.quit()
   }
+})
+
+/** Resolves once `file` exists and contains `text`. */
+async function fileContains(file: string, text: string, ms = 10_000): Promise<void> {
+  const until = Date.now() + ms
+  while (!(existsSync(file) && readFileSync(file, 'utf8').includes(text))) {
+    if (Date.now() > until) throw new Error(`${file} never contained ${text}`)
+    await new Promise((resolve) => setTimeout(resolve, 100))
+  }
+}
+
+test('after a restart, only what is new since the last run is announced', async (t) => {
+  const dir = tempDir(t)
+  setPs(dir, unread('feat-a'))
+  const first = launch(dir)
+  try {
+    await first.waitFor(/^menu bar: 1$/m, 'a count of 1')
+    // The first run ever only remembers what is there; wait until that is saved.
+    await fileContains(join(dir, 'user-data', 'settings.json'), 'example-app/feat-a')
+  } finally {
+    await first.quit()
+  }
+  assert.doesNotMatch(first.output(), /^notification:/m, 'the first run ever announces nothing')
+
+  setPs(dir, unread('feat-a', 'feat-b'))
+  const second = launch(dir)
+  try {
+    await second.waitFor(/^notification: example-app · feat-b$/m, 'a notification for feat-b')
+    await second.waitFor(/^menu bar: 2$/m, 'a count of 2')
+  } finally {
+    await second.quit()
+  }
+  assert.deepEqual(second.output().match(/^notification: .*$/gm), ['notification: example-app · feat-b'])
 })
