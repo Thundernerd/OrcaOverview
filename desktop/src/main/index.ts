@@ -86,7 +86,10 @@ function showWindow(): void {
   win.focus()
 }
 
-/** Shows the window, and asks it to show `worktreeId`'s item once its page has loaded. */
+/**
+ * Shows the window, and asks it to show `worktreeId`'s item once its page has loaded. The window
+ * doesn't listen on `overview.reveal` yet (#23).
+ */
 function revealInWindow(worktreeId: string | null): void {
   showWindow()
   if (!worktreeId || !win) return
