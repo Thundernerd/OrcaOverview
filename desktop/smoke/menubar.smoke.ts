@@ -28,29 +28,27 @@ const row = (name: string, extra: object = {}) => ({
   ...extra
 })
 
-/** Two workspaces flagged unread: two items need you. */
-const TWO_UNREAD = {
-  ok: true,
-  result: {
-    worktrees: [
-      row('main', { isMainWorktree: true, parentWorktreeId: null }),
-      row('feat-a', { unread: true }),
-      row('feat-b', { unread: true }),
-      row('feat-c')
-    ]
-  }
+/** What `worktree ps` answers: the main workspace and three others, the named ones flagged unread. */
+function unread(...names: string[]) {
+  const others = ['feat-a', 'feat-b', 'feat-c'].map((n) => row(n, names.includes(n) ? { unread: true } : {}))
+  return { ok: true, result: { worktrees: [row('main', { isMainWorktree: true, parentWorktreeId: null }), ...others] } }
 }
 
-/** A stand-in for the `orca` CLI: `worktree ps` lists TWO_UNREAD, anything else succeeds with nothing. */
+/** A fresh folder for one test: the fake CLI and the app's user data. Removed afterwards. */
+function tempDir(t: { after(fn: () => void): void }): string {
+  const dir = mkdtempSync(join(tmpdir(), 'orca-overview-smoke-'))
+  t.after(() => rmSync(dir, { recursive: true, force: true }))
+  return dir
+}
+
+/** A stand-in for the `orca` CLI in `dir`: `worktree ps` answers what setPs wrote, anything else succeeds with nothing. */
 function fakeOrca(dir: string): string {
   const file = join(dir, 'orca')
   writeFileSync(
     file,
     `#!/bin/sh
 if [ "$1 $2" = "worktree ps" ]; then
-  cat <<'JSON'
-${JSON.stringify(TWO_UNREAD)}
-JSON
+  cat '${join(dir, 'ps.json')}'
 else
   echo '{"ok":true,"result":{}}'
 fi
@@ -60,33 +58,69 @@ fi
   return file
 }
 
-test('the built app shows the needs-you count in the menu bar', async () => {
-  const exe = builtExecutable()
-  const dir = mkdtempSync(join(tmpdir(), 'orca-overview-smoke-'))
-  const app = spawn(exe, [], { env: { ...process.env, ORCA_OVERVIEW_CLI: fakeOrca(dir) }, stdio: ['ignore', 'pipe', 'pipe'] })
-  try {
-    const title = await new Promise<string>((resolve, reject) => {
-      let out = ''
-      const timer = setTimeout(() => reject(new Error(`no menu bar count within 20 s; output:\n${out}`)), 20_000)
-      const read = (chunk: Buffer) => {
-        out += chunk.toString()
-        const counts = [...out.matchAll(/^menu bar: (.*)$/gm)].map((m) => m[1])
-        const last = counts.at(-1)
-        if (last && last !== '…') {
+const setPs = (dir: string, answer: object) => writeFileSync(join(dir, 'ps.json'), JSON.stringify(answer))
+
+/**
+ * Launches the built app against the fake CLI in `dir`, with `dir/user-data` as its user-data
+ * folder: it doesn't touch your saved settings, and it runs next to your own copy (the
+ * single-instance lock lives in that folder).
+ */
+function launch(dir: string) {
+  const app = spawn(builtExecutable(), [`--user-data-dir=${join(dir, 'user-data')}`], {
+    env: { ...process.env, ORCA_OVERVIEW_CLI: fakeOrca(dir) },
+    stdio: ['ignore', 'pipe', 'pipe']
+  })
+  let out = ''
+  const waiters = new Set<() => void>()
+  const read = (chunk: Buffer) => {
+    out += chunk.toString()
+    for (const check of [...waiters]) check()
+  }
+  app.stdout.on('data', read)
+  app.stderr.on('data', read)
+  const exited = new Promise<number | null>((resolve) => app.on('exit', resolve))
+  return {
+    output: () => out,
+    /** Resolves with the first match of `pattern` in the output so far or still to come. */
+    waitFor(pattern: RegExp, what: string, ms = 20_000): Promise<RegExpMatchArray> {
+      return new Promise((resolve, reject) => {
+        let settled = false
+        const settle = (fn: () => void) => {
+          if (settled) return
+          settled = true
           clearTimeout(timer)
-          resolve(last)
+          waiters.delete(check)
+          fn()
         }
-      }
-      app.stdout.on('data', read)
-      app.stderr.on('data', read)
-      app.on('exit', (code) => {
-        clearTimeout(timer)
-        reject(new Error(`the app exited (${code}) before showing a count (is another copy running?); output:\n${out}`))
+        const check = () => {
+          const m = out.match(pattern)
+          if (m) settle(() => resolve(m))
+        }
+        const timer = setTimeout(() => settle(() => reject(new Error(`no ${what} within ${ms / 1000} s; output:\n${out}`))), ms)
+        void exited.then((code) => settle(() => reject(new Error(`the app exited (${code}) before showing ${what}; output:\n${out}`))))
+        waiters.add(check)
+        check()
       })
-    })
-    assert.equal(title, '2')
+    },
+    /** Quits the app and waits until it has exited, so nothing writes to `dir` afterwards. */
+    async quit(): Promise<void> {
+      if (app.exitCode === null && app.signalCode === null) app.kill()
+      await exited
+    }
+  }
+}
+
+/** The menu bar's count once the first refresh has replaced its placeholder. */
+const COUNT = /^menu bar: (\d+)$/m
+
+test('the built app shows the needs-you count in the menu bar', async (t) => {
+  const dir = tempDir(t)
+  setPs(dir, unread('feat-a', 'feat-b'))
+  const app = launch(dir)
+  try {
+    const [, count] = await app.waitFor(COUNT, 'a menu bar count')
+    assert.equal(count, '2')
   } finally {
-    app.kill()
-    rmSync(dir, { recursive: true, force: true })
+    await app.quit()
   }
 })
