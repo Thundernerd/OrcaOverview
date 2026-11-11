@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { ORCA, orcaJsonAt, surveyAvailable, surveyTickets } from '../../../core/cli.ts'
 import { createEngine } from '../../../core/engine.ts'
 import type { Snapshot } from '../../../core/protocol.ts'
-import { handleRequests } from './ipc.ts'
+import { handleRequests, handleViewState } from './ipc.ts'
 import { requestLocalNetworkAccess } from './localNetwork.ts'
 import { cliOpener } from './opener.ts'
 
@@ -28,8 +28,11 @@ function memoryStorage() {
   }
 }
 
+/** The engine's storage (hidden projects, ticket counts) and the window's view state. */
+const storage = memoryStorage()
+
 const engine = createEngine({
-  storage: memoryStorage(),
+  storage,
   // Desktop notifications come with #7.
   notify: async () => undefined,
   opener: cliOpener(orcaJson),
@@ -52,8 +55,9 @@ function setMenuBarTitle(title: string): void {
 
 function createWindow(): BrowserWindow {
   const w = new BrowserWindow({
-    width: 520,
-    height: 680,
+    width: 560,
+    height: 780,
+    minWidth: 380,
     show: false,
     title: 'Orca Overview',
     webPreferences: { preload: join(import.meta.dirname, '../preload/index.cjs'), sandbox: true }
@@ -113,6 +117,7 @@ function start(): void {
   tray.on('right-click', () => tray?.popUpContextMenu(menu))
 
   handleRequests(ipcMain, engine)
+  handleViewState(ipcMain, storage)
   engine.onSnapshot((s: Snapshot) => {
     setMenuBarTitle(String(s.attention.length))
     if (win && !win.isDestroyed()) win.webContents.send('overview.snapshot', s)
