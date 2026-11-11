@@ -1,11 +1,12 @@
 // The overview's worker: polls Orca's workspaces, keeps ticket counts, answers the panel and
 // keeps the status bar item current. A save restarts it, so what must survive lives in storage.
 import type { OrcaWorkerApi } from 'orca/worker'
-import { markRead, openAgent, reply, runSkill, terminalsOf } from '../core/actions.ts'
+import { orcaActions } from '../core/actions.ts'
 import { orcaJson, surveyAvailable, surveyTickets } from '../core/cli.ts'
 import { buildSnapshot, isMerging, keepOneActive, omittedHosts, tagRemote, type PsWorktree } from '../core/model.ts'
 import type { Snapshot, TicketCounts } from '../core/protocol.ts'
 import { failedSurvey, parseSurvey } from '../core/survey.ts'
+import { hostOpener } from './opener.ts'
 
 const POLL_MS = 15_000
 const TICKETS_MS = 5 * 60_000
@@ -20,6 +21,8 @@ const K_HIDDEN = 'hidden'
 const K_NOTIFIED = 'notified'
 
 export default function activate(orca: OrcaWorkerApi): void {
+  const { markRead, openAgent, reply, runSkill, terminalsOf } = orcaActions()
+  const opener = hostOpener(orca)
   let worktrees: PsWorktree[] = []
   let tickets: Record<string, TicketCounts> = {}
   let hidden = new Set<string>()
@@ -255,7 +258,7 @@ export default function activate(orca: OrcaWorkerApi): void {
     return rebuild()
   })
   orca.panels.handle('overview.runSkill', async ({ projectId, skill, args }) => {
-    const result = await runSkill(orca, mainOf(projectId), skill, args)
+    const result = await runSkill(opener, mainOf(projectId), skill, args)
     if (skill === 'merge-tickets') {
       pendingMerges.set(projectId, Date.now())
       rebuild()
@@ -264,7 +267,7 @@ export default function activate(orca: OrcaWorkerApi): void {
     return result
   })
   orca.panels.handle('overview.open', async ({ worktreeId }) => {
-    await openAgent(orca, worktree(worktreeId))
+    await openAgent(opener, worktree(worktreeId))
     return { ok: true as const }
   })
   orca.panels.handle('overview.reply', async ({ worktreeId, text }) => {
@@ -293,7 +296,7 @@ export default function activate(orca: OrcaWorkerApi): void {
     // Only local workspaces can be opened from here (see REMOTE_OPEN_UNSUPPORTED).
     const first = s.attention.find((a) => !s.projects.find((p) => p.id === a.projectId)?.host)
     if (!first) return s.attention.length ? 'Only workspaces on paired servers need you; open them from the sidebar.' : 'Nothing needs you.'
-    await openAgent(orca, worktree(first.worktreeId))
+    await openAgent(opener, worktree(first.worktreeId))
     return `${first.projectName} · ${first.workspaceName}: ${first.reason}`
   })
 
