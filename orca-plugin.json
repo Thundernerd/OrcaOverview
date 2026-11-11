@@ -1,0 +1,74 @@
+{
+  "manifestVersion": 2,
+  "id": "orcaoverview",
+  "name": "Orca Overview",
+  "version": "0.1.0",
+  "description": "Every project and its ticket workspaces in one panel: what needs you first, and one-click /launch-tickets, /merge-tickets, /clean-workspaces and /write-ticket.",
+  "engines": {
+    "orca": ">=1.4.248"
+  },
+  "execution": "trusted-worker",
+  "pluginApi": 1,
+  "main": "src/worker.ts",
+  "contributes": {
+    "panels": [
+      {
+        "id": "overview",
+        "title": "Overview",
+        "icon": "gauge",
+        "entry": "src/panel.tsx",
+        "ui": "components"
+      }
+    ],
+    "commands": [
+      {
+        "id": "overview.next",
+        "title": "Overview: Open the oldest item that needs you"
+      },
+      {
+        "id": "overview.refresh",
+        "title": "Overview: Refresh"
+      }
+    ],
+    "statusBarItems": [
+      {
+        "id": "attention",
+        "text": "Overview",
+        "icon": "bell",
+        "tooltip": "Orca Overview",
+        "command": "overview.next"
+      }
+    ],
+    "events": [
+      {
+        "on": "agent.status.changed"
+      },
+      {
+        "on": "workspace.changed"
+      },
+      {
+        "on": "workspace.created"
+      },
+      {
+        "on": "workspace.removed"
+      }
+    ]
+  },
+  "capabilities": [
+    {
+      "kind": "workspace:read"
+    },
+    {
+      "kind": "workspace:write"
+    },
+    {
+      "kind": "agent:read"
+    },
+    {
+      "kind": "notifications:show"
+    },
+    {
+      "kind": "storage:own"
+    }
+  ]
+}
