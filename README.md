@@ -68,7 +68,7 @@ npx -p typescript tsc -p core --noEmit  # core alone, without .orca/types
 
 ## Desktop app
 
-`desktop/` is a macOS menu bar app that shows the overview outside Orca. It's an early skeleton: the menu bar shows how many items need you (the same count as the plugin's status bar), and its window lists the snapshot as plain text. The real window, notifications and saved settings come later.
+`desktop/` is a macOS menu bar app that shows the overview outside Orca. The menu bar shows how many items need you (the same count as the plugin's status bar). Its window does everything the panel does: Needs you, the project cards and their buttons, pin, minimize and hide. It follows macOS light and dark mode. Pin, minimize, hide and the open workspace tables are kept in the main process, in memory: they reset when the app quits. Saved settings and notifications come later.
 
 - **Engine:** the main process runs the same engine as the plugin. Orca's events don't reach apps outside it, so it polls every 5 s.
 - **Requests:** the window asks the main process over IPC, with the plugin's request names (`overview.snapshot`, `overview.runSkill`, …).
@@ -82,12 +82,14 @@ npm install
 node node_modules/electron/install.js   # npm 11 skips Electron's install script
 npm run dev         # run it from source, with live reload
 npm run build       # an unsigned app in dist/mac-<arch>/Orca Overview.app
-npm test            # unit tests (also part of `orca plugin test`)
+npm test            # unit tests, and the window's component tests (*.spec.tsx)
 npm run smoke       # launches the built app against a fake orca CLI
 npm run typecheck
 ```
 
 The build is only ad-hoc signed. If macOS refuses to open it, right-click the app and choose Open. To read paired servers on your network, the app needs Local Network access. At launch it connects to each paired server once so macOS asks: allow it, or turn on Orca Overview later under System Settings → Privacy & Security → Local Network. The build gives the executable its own Mach-O UUID (`desktop/build/unique-uuid.cjs`); without that, macOS takes the app for the stock Electron and blocks it without asking. Without it those servers show "Could not connect to the remote Orca runtime". `ORCA_OVERVIEW_CLI=/path/to/orca` points the app at a different `orca` binary.
+
+`orca plugin test` runs the desktop's `*.test.ts` files too, but not the window's `*.spec.tsx` component tests: it compiles JSX for Orca's panels, not for React. Run those with `npm test`.
 
 Don't install the plugin from a checkout that has `desktop/node_modules` (`orca plugin install .`). Install it from GitHub or from a clean clone (see `docs/spikes/repo-layout.md`).
 
