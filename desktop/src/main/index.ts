@@ -1,13 +1,15 @@
 // The desktop app's main process: runs the shared engine (core/engine.ts), shows the needs-you
 // count in the menu bar and answers the window over IPC with the plugin's operation names.
-import { app, BrowserWindow, ipcMain, Menu, nativeImage, Tray } from 'electron'
+import { app, BrowserWindow, ipcMain, Menu, nativeImage, Notification, Tray } from 'electron'
 import { join } from 'node:path'
 import { ORCA, orcaJsonAt, surveyAvailable, surveyTickets } from '../../../core/cli.ts'
 import { createEngine } from '../../../core/engine.ts'
 import type { Snapshot } from '../../../core/protocol.ts'
 import { handleRequests, handleViewState } from './ipc.ts'
 import { requestLocalNetworkAccess } from './localNetwork.ts'
+import { desktopNotifier } from './notify.ts'
 import { cliOpener } from './opener.ts'
+import { fileStorage } from './storage.ts'
 
 /** Orca's events don't reach apps outside it, so poll more often than the plugin's 15 s. */
 const POLL_MS = 5_000
@@ -19,22 +21,24 @@ let tray: Tray | null = null
 let win: BrowserWindow | null = null
 let quitting = false
 
-/** In memory until saved settings arrive (#7). */
-function memoryStorage() {
-  const values = new Map<string, unknown>()
-  return {
-    get: async (key: string) => values.get(key),
-    set: async (key: string, value: unknown) => void values.set(key, value)
-  }
-}
+/**
+ * The engine's storage (ticket counts, hidden projects, notified items) and the window's view
+ * state, in ~/Library/Application Support/Orca Overview/settings.json.
+ */
+const storage = fileStorage(join(app.getPath('userData'), 'settings.json'))
 
-/** The engine's storage (hidden projects, ticket counts) and the window's view state. */
-const storage = memoryStorage()
+const notify = desktopNotifier({
+  create: (options) => new Notification(options),
+  reveal: revealInWindow
+})
 
 const engine = createEngine({
   storage,
-  // Desktop notifications come with #7.
-  notify: async () => undefined,
+  notify: async (title, body, worktreeId) => {
+    // Printed like the menu bar count, so the smoke test can see what was announced.
+    console.log(`notification: ${title}`)
+    if (Notification.isSupported()) await notify(title, body, worktreeId)
+  },
   opener: cliOpener(orcaJson),
   // No focusedTerminals or focusedWorkspace: the CLI can't say which workspace Orca's window shows
   // (#14), so with paired servers this machine's active workspace stays the active one.
@@ -80,6 +84,16 @@ function showWindow(): void {
   // Without a Dock icon the app doesn't come forward on its own; bring it in front of Orca.
   app.focus({ steal: true })
   win.focus()
+}
+
+/** Shows the window, and asks it to show `worktreeId`'s item once its page has loaded. */
+function revealInWindow(worktreeId: string | null): void {
+  showWindow()
+  if (!worktreeId || !win) return
+  const contents = win.webContents
+  const send = () => contents.send('overview.reveal', worktreeId)
+  if (contents.isLoading()) contents.once('did-finish-load', send)
+  else send()
 }
 
 /** Hides the window when it's in front; otherwise shows it, also when it's behind other windows. */
