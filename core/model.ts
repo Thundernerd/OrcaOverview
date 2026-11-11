@@ -31,6 +31,8 @@ export interface PsWorktree {
   rawWorktreeId?: string
   /** The paired server it lives on; absent on this machine. */
   env?: string | null
+  /** A remote row's host as this machine's `worktree ps` hostScope names it (see tagRemote). */
+  hostId?: string | null
   repoId: string
   repo: string
   path: string
@@ -69,10 +71,12 @@ export interface ModelInput {
 }
 
 /** Makes a paired server's rows unique next to local ones and remembers where they live. */
-export function tagRemote(env: string, rows: PsWorktree[]): PsWorktree[] {
+export function tagRemote(env: string, rows: PsWorktree[], hostId: string | null = null): PsWorktree[] {
   return rows.map((w) => ({
     ...w,
     env,
+    // The server calls itself `local`; name it the way this machine does.
+    hostId,
     rawWorktreeId: w.worktreeId,
     worktreeId: `${env}@@${w.worktreeId}`,
     repoId: `${env}@@${w.repoId}`
@@ -95,6 +99,21 @@ export function omittedHosts(hostScope: HostScope): { env: string; hostId: strin
     if (env && !hosts.some((h) => h.env === env)) hosts.push({ env, hostId: s.hostId ?? null })
   }
   return hosts
+}
+
+/** How `worktree ps` names this machine's host. */
+export const LOCAL_HOST = 'local'
+
+/** A workspace named by its host (see PsWorktree.hostId) and the id that host knows it by. */
+export interface HostWorktree {
+  hostId: string
+  worktreeId: string
+}
+
+/** The active row that `shown` names, or null. */
+export function findShown(rows: PsWorktree[], shown: HostWorktree): PsWorktree | null {
+  const hostOf = (w: PsWorktree) => (w.env ? (w.hostId ?? null) : LOCAL_HOST)
+  return rows.find((w) => w.isActive && hostOf(w) === shown.hostId && (w.rawWorktreeId ?? w.worktreeId) === shown.worktreeId) ?? null
 }
 
 /** Every host keeps its own last-focused workspace; keep only the one Orca shows (`keepId`). */

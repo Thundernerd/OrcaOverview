@@ -176,3 +176,15 @@ test('with two hosts reporting an active workspace, the focused workspace input 
   const active = s.projects.filter((p) => p.isActive).map((p) => [p.host ?? 'local', p.activeWorkspace])
   assert.deepEqual(active, [['devbox', 'main']])
 })
+
+test('the focused workspace input can name this machine, and one that names no active workspace changes nothing', async () => {
+  const rows = { local: [main('atlas', { isActive: true })], remote: [main('atlas', { isActive: true })] }
+  const activeWith = async (focused: { hostId: string; worktreeId: string }) => {
+    const deps = fakeDeps(pairedCli(rows.local, rows.remote), { focusedWorkspace: async () => focused }).deps
+    const s = await createEngine(deps).refresh()
+    return s.projects.filter((p) => p.isActive).map((p) => p.host ?? 'local')
+  }
+  assert.deepEqual(await activeWith({ hostId: 'local', worktreeId: 'atlas-id::/ws/atlas/main' }), ['local'])
+  assert.deepEqual(await activeWith({ hostId: 'runtime:other', worktreeId: 'atlas-id::/ws/atlas/main' }), ['local'], 'unknown host: this machine wins')
+  assert.deepEqual(await activeWith({ hostId: 'runtime:devbox-runtime', worktreeId: 'atlas-id::/ws/atlas/gone' }), ['local'], 'unknown workspace: this machine wins')
+})
