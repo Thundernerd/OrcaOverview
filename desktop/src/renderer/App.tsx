@@ -109,7 +109,7 @@ function Button({ children, disabled, title, label, onClick, variant = 'outline'
 /** A notification click that asked to show a workspace's card. `n` counts clicks, so clicking the same one again shows it again. */
 type Reveal = { worktreeId: string; n: number }
 
-/** How long a revealed card stays highlighted; the same as the `reveal` animation in styles.css. */
+/** How long a revealed card stays highlighted: the length of the `reveal` animation in styles.css. */
 const REVEAL_MS = 2_000
 
 function AttentionCard({ item, project, actions, revealed }: {
@@ -122,17 +122,29 @@ function AttentionCard({ item, project, actions, revealed }: {
   const ref = useRef<HTMLElement>(null)
   const headingId = useId()
   useEffect(() => {
-    if (!revealed || !ref.current) return
-    // jsdom has no scrollIntoView.
-    ref.current.scrollIntoView?.({ block: 'nearest' })
-    ref.current.focus({ preventScroll: true })
+    const el = ref.current
+    if (!revealed || !el) return
+    // A second click while the card is still highlighted keeps its class, so play the fade again.
+    // jsdom has neither getAnimations nor scrollIntoView.
+    for (const a of el.getAnimations?.() ?? []) {
+      a.currentTime = 0
+      a.play()
+    }
+    el.scrollIntoView?.({ block: 'nearest' })
+    el.focus({ preventScroll: true })
   }, [revealed])
   const replying = actions.editing === `reply:${item.key}`
   const has = (k: AttentionKind) => item.kinds.includes(k)
   const remote = Boolean(project?.host)
   const tip = remote ? REMOTE_TIP : undefined
   return (
-    <article ref={ref} tabIndex={-1} aria-labelledby={headingId} className={`card attention ${KIND[item.kind].tone}${revealed ? ' revealed' : ''}`}>
+    <article
+      ref={ref}
+      tabIndex={-1}
+      aria-labelledby={headingId}
+      className={`card attention ${KIND[item.kind].tone}${revealed ? ' revealed' : ''}`}
+      style={revealed ? { animationDuration: `${REVEAL_MS}ms` } : undefined}
+    >
       {/* Kind and age on their own line, so a long workspace name can never push them out. */}
       <div className="row between">
         <div className="row">
